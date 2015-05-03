@@ -167,8 +167,7 @@ class RDD(object):
         lines = f.readlines()
         f.close()
         self.rdd = lines
-        return self
-def 
+        return self 
 
 
 if __name__ == "__main__":

@@ -34,6 +34,7 @@ class TextFile(RDD):
             f.close()
     
         for line in self.lines:
+            print line
             yield line
 
 class Map(RDD):
@@ -94,11 +95,12 @@ class Join(RDD):
         yield rdd
 
 if __name__ == "__main__":
-    j = Join("old_1", "old_2");
-    for i in j.get():
-        print i
-    print j.get()
-    # r = TextFile('myfile')
+    # j = Join("old_1", "old_2");
+    # for i in j.get():
+    #     print i
+    # print j.get()
+    r = TextFile('myfile')
+    print r.collect()
     # m = Map(r, lambda s: s.split())
     # f = Filter(m, lambda a: int(a[1]) > 2)
     # print f.collect(), f.count()

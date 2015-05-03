@@ -1,7 +1,8 @@
 from rdd import *
+from partition import *
 
 class SparkContext():
-    def __init__(self):
+
     # def __init__(self, worker_list):
     #     #setup cluster worker connections
     #     self.workers  = worker_list
@@ -12,6 +13,7 @@ class SparkContext():
     #             c.connect("tcp://" + worker)
     #             self.connections.append(c)
 
+    def __init__(self):
         # map the inputs to the function blocks
         self.options = { "TextFile"    : self.visitTextFile,
                          "Map"         : self.visitMap,
@@ -26,31 +28,49 @@ class SparkContext():
     def visit_lineage(self, rdd):
         for i in rdd.get_lineage():
             op = next(i)
-            self.options[op.__class__.__name__]()
+            self.options[op.__class__.__name__](op)
 
     # define the function blocks
-    def visitTextFile(self):
+    def visitTextFile(self, textfile):
         print "visit TestFile.\n"
+        print textfile.__class__.__name__
+        print textfile.filePath, "\n"
+        print textfile.get_parent()
+        # for i in range(len(worker_list)):
+        #     r[i] = FilePartition(textfile, textfile.id, i)
 
-    def visitMap(self):
+
+    def visitMap(self, mapper):
         print "visit Map\n"
+        print mpper.get_parent()
+        # for i in range(len(worker_list)):
+        #     m[i] = 
 
-    def visitFilter(self):
+    def visitFilter(self, filt):
         print "visit Filter\n"
+        print filt.get_parent
 
-    def visitFlatmap(self):
+    def visitFlatmap(self, flatMap):
         print "visit FlatMap\n"
+        print flatMap.get_parent()
 
-    def visitReduceByKey(self):
+    def visitReduceByKey(self, reduceByKey):
         print "visit ReduceByKey\n"
+        print reduceByKey.get_parent()
 
-    def visitMapValue(self):
+    def visitMapValue(self, mapValue):
         print "visit MapValue\n"
+        print mapValue.get_parent()
 
-    def visitJoin(self):
+    def visitJoin(self, join):
         print "visit join\n"
+        print join.get_parent()
 
+    def collect(self, rdd):
+        pass
 
+    def count(self, rdd):
+        pass
 
 if __name__ == "__main__":
     # j = Join("old_1", "old_2");

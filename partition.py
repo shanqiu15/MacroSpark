@@ -1,119 +1,90 @@
-from collections import defaultdict
 from itertools import groupby
 
-RDD_INDEX = 0
+class Partition(object):
 
-class RDD(object):
-    def __init__(self, rdd, worker_list):
-        self.rdd = rdd
-        self.workers  = enumerate(worker_list)
-
-class RDDPartition(object):
-
-    def __init__(self, partition = None, partition_index = None):
-        global RDD_INDEX
-        RDD_INDEX = RDD_INDEX + 1
-        self.id = RDD_INDEX
-        self.partition = partition
+    def __init__(self, rdd_id, partition_index = None):
+        self.rdd_id = rdd_id
         self.partition_index = partition_index
-        # self.workers  = enumerate(worker_list)
-        # self.addr = worker_addr
-    
-    def readFile(self, filePath):
-        #######################
-        #need to change to split the file while reading 
-        #######################
-        f = open(filePath)
-        lines = f.readlines()
-        f.close()
-        self.partition = lines
-        return self
-
 
     def collect(self):
-        pass
+        elements = []
+        for element in self.get():
+            elements.append(element)
+        return elements
 
-    def count(self):
-        return len(self.collect())    
+    def show(self):
+        for elem in self.get():
+            print elem
 
-    #each partition will call yield and seperate the linage to different stages
-    def linage(self):
-        for tmp_rdd in self.get():
-            return tmp_rdd
-            #
-            #call the repartition function
-            #
+class FilePartition(Partition):
 
-    def getPartition(self):
-        return self.partition
+    def __init__(self, rdd_id, partition_index, filename):
+        super(FilePartition, self).__init__(rdd_id, partition_index)
+        self.filename = filename
+        self.lines = None
 
-    def partition_map(self, func):
+    def get(self):
+        print "This is the get in TextFile"
+        if not self.lines:
+            f = open(self.filename)
+            self.lines = f.readlines()
+            f.close()
+    
+        for line in self.lines:
+            yield line
+
+class MapPartition(Partition):
+
+    def __init__(self,  rdd_id, partition_index, parent, func):
+        super(MapPartition, self).__init__(rdd_id, partition_index)
+        self.parent = parent
+        self.func = func
+
+    def get(self):
         print "This is the caculation in mapper"
-        self.partition = [func(elem) for elem in self.partition]
-        return self
+        for element in self.parent.get():
+            yield self.func(element)
 
-    def partition_flatmap(self, func):
-        print "This in the flatmap"
-        tem = []
-        for elem in self.partition:
-            tem = tem + func(elem)
-        self.partition =  tem
-        return self
+class FilterPartition(Partition):
+    
+    def __init__(self,  rdd_id, partition_index, parent, func):
+        super(FilterPartition, self).__init__(rdd_id, partition_index)
+        self.parent = parent
+        self.func = func
 
-    def partition_filter(self, func):
+    def get(self):
         print "This is the caculation in filter"
-        self.partition = [elem for elem in self.partition if func(elem)]
-        return self
+        for element in self.parent.get():
+            if self.func(element):
+                yield element
 
-    def partition_groupByKey(self):
-        print "This is the caculation in groupByKey"
-        ################Debugging lines################
-        #self.partition = self.partition + self.partition + self.partition
-        ###############################################
-        self.partition = sorted(self.partition)
-        self.partition = [(key, [i[1] for i in group]) for key, group in groupby(self.partition, lambda x: x[0])]
-        return self
+class JoinPartition(Partition):
+    def __init__(self,  rdd_id, partition_index, parent_1, parent_2):
+        super(JoinPartition, self).__init__(rdd_id, partition_index)
+        self.parent_1 = parent_1
+        self.parent_2 = parent_2
 
-    def partition_reduceByKey(self):
-        print "This is the caculation in reduceByKey"
-        self.partition = self.partition_groupByKey().getPartition()
-        self.partition = [(key, sum(group)) for key, group in self.partition]
-        return self
+    def get(self):
+        '''
+        now we just compare each element with all the elements in the other lists
+        we should optimize this function buy sorting the two list first then compare 
+        one by one
+        '''
 
-    def partition_mapValues(self, func):
-        print "This is the caculation in mapValues"
-        self.partition = [(key, func(value)) for key, value in self.partition]
-        return self
-
-    def partition_join(self, join_partition):
         result = []
-        for i in self.getPartition():
-            for j in join_partition:
+        for i in self.parent_1.get():
+            for j in self.parent_2.get():
                 if i[0] == j[0]:
-                    result.append((i[0], (i[1], j[1])))
-        self.partition = result
-        return self
-
-
+                    print (i[0], (i[1], j[1]))
+                    yield (i[0], (i[1], j[1]))
 
 if __name__ == "__main__":
-    # j = Join("old_1", "old_2");
-    # for i in j.get():
-    #     print i
-    # print j.get()
-    p = RDDPartition()
-    l = p.readFile('myfile')
-    m = l.partition_flatmap(lambda s: s.split())
-    p = m.partition_map(lambda s: (s, 1))
-    g = p.partition_reduceByKey()
-    t = g.partition_mapValues(lambda s: s - 4)
-    x = t.getPartition()
-    r = t.partition_join(x)
-    # print r.getPartition()
-    # for i in range(10):
-    #     x = RDDPartition()
-    #     print x.id
-    # f = m.rdd_filter(lambda a: int(a[1]) > 2)
-    # print f.collect(), f.count()
 
-    
+    r = FilePartition(1, 1, 'myfile')
+    m = MapPartition(2, 1, r, lambda s: s.split())
+    f = FilterPartition(3, 1, m, lambda a: int(a[1]) > 2)
+
+    z = FilePartition(4 , 1, 'myfile')
+    q = MapPartition(5, 1, r, lambda s: s.split())
+    j = JoinPartition(6, 1, m, q)
+    print j.collect()
