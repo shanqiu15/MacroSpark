@@ -1,93 +1,196 @@
-from collections import defaultdict
-from itertools import groupby
-
 RDD_ID = 0
-
-class Driver(object):
-    def __init__(self):
-        #setup cluster worker connections
-        self.workers  = worker_list
-        self.worker_index = worker_index
-        self.connections = []
-        for index, worker in enumerate(worker_list):
-            if self.index != index:
-                c = zerorpc.Client(timeout=1)
-                c.connect("tcp://" + worker)
-                self.connections.append(c)
 
 class RDD(object):
 
-    def __init__(self, worker_list, worker_index, rdd = None):
+    def __init__(self):
 
-        #set an id for this RDD
+        #Set a unique id for the RDD
         global RDD_ID
         RDD_ID = RDD_ID + 1
         self.id = RDD_ID
 
-        #create new rdds using exiting rdd
-        self.rdd = rdd
 
-        #parameters used for repartion
-        # self.new_rdd = None
-        # self.split_result = {}
-        # self.split = None
-        # self._stage_index = 0
+    # def collect(self):
+    #     elements = []
+    #     for element in self.get():
+    #         elements.append(element)
+    #     return elements
 
-    def collect(self):
-        yield ("collect", self.id)
+    # def count(self):
+    #     return len(self.collect())
 
-    def map(self, func):
-        print "This is a map operation"
-        yield ("map", func, self.id)
+class TextFile(RDD):
 
-    def flatmap(self, func):
-        print "This is a flatmap operation"
-        yield ("flatmap", func, self.id)
+    def __init__(self, filename):
+        super(TextFile, self).__init__()
+        self.filename = filename
 
-    def filter(self, func):
-        print "This is a filter operation"
-        yield ("filter", func, self.id)
+        #Store all the operations until now (a generator list)
+        self.lineage = []
+        self.set_lineage()
 
-    def groupByKey(self):
-        print "This is a groupByKey operation"
-        yield ("groupByKey", None,  )
-        self.rdd = sorted(self.rdd)
-        self.rdd = [(key, [i[1] for i in group]) for key, group in groupby(self.rdd, lambda x: x[0])]
-        return self
+    def need_repartition(self):
+        return False
 
-    def reduceByKey(self):
-        print "This is the caculation in reduceByKey"
-        yield ("reduceByKey", func)
+    def set_lineage(self):
+        self.lineage.append(self.get())
 
-    def mapValues(self, func):
-        print "This is a map value operation"
-        yield ("mapValue", func)
+    #each partition will call yield and seperate the lineage to different stages
+    def get_lineage(self):
+        return self.lineage
 
-    def join(self, rhs_rdd_id):
-        print "This is an join operation"
-        yield ("join", rhs_rdd_id)
+    def get(self):
+        yield self
 
-    def readFile(self, filePath, start_offsize = 0, end_offize = 0):
-        print "This is a read file operation"
-        yield ("readFile", filePath, start_offsize, end_offize)
+class Map(RDD):
+
+    def __init__(self, parent, func):
+        super(Map, self).__init__()
+        self.parent = parent
+        self.func = func
+
+        #Store all the operations until now (a generator list)
+        self.lineage = []
+        self.set_lineage()
 
 
-if __name__ == "__main__":
-    # j = Join("old_1", "old_2");
-    # for i in j.get():
-    #     print i
-    # print j.get()
-    p = RDD()
-    l = p.readFile('myfile')
-    m = l.flatmap(lambda s: s.split())
-    p = m.map(lambda s: (s, 1))
-    g = p.reduceByKey()
-    t = g.mapValues(lambda s: s - 4)
-    x = t.getRdd()
-    r = t.join(x)
-    print r.getRdd()
+    def need_repartition(self):
+        return False
 
-    # f = m.rdd_filter(lambda a: int(a[1]) > 2)
-    # print f.collect(), f.count()
+    def set_lineage(self):
+        parent = next(self.parent.get())
+        self.lineage = parent.get_lineage()
+        self.lineage.append(self.get())
 
+    #each partition will call yield and seperate the lineage to different stages
+    def get_lineage(self):
+        return self.lineage
+
+    def get(self):
+        yield self
+
+class Filter(RDD):
     
+    def __init__(self, parent, func):
+        super(Filter, self).__init__()
+        self.parent = parent
+        self.func = func
+
+        #Store all the operations until now (a generator list)
+        self.lineage = []
+        self.set_lineage()
+
+    def need_repartition(self):
+        return False
+
+    def set_lineage(self):
+        parent = next(self.parent.get())
+        self.lineage = parent.get_lineage()
+        self.lineage.append(self.get())
+
+    #each partition will call yield and seperate the lineage to different stages
+    def get_lineage(self):
+        return self.lineage
+
+    def get(self):
+        yield self
+
+class FlatMap(RDD):
+    def __init__(self, parent):
+        super(FlatMap, self).__init__()
+        self.parent = parent
+        self.func = func
+
+        #Store all the operations until now (a generator list)
+        self.lineage = []
+        self.set_lineage()
+
+    def need_repartition(self):
+        return False
+
+    def set_lineage(self):
+        parent = next(self.parent.get())
+        self.lineage = parent.get_lineage()
+        self.lineage.append(self.get())
+
+    #each partition will call yield and seperate the lineage to different stages
+    def get_lineage(self):
+        return self.lineage
+
+    def get(self):
+        yield self
+
+class ReduceByKey(RDD):
+    def __init__(self, parent, func):
+        super(ReduceByKey, self).__init__()
+        self.parent = parent
+        self.func = func
+
+        #Store all the operations until now (a generator list)
+        self.lineage = []
+        self.set_lineage()
+
+    def need_repartition(self):
+        return False
+
+    def set_lineage(self):
+        parent = next(self.parent.get())
+        self.lineage = parent.get_lineage()
+        self.lineage.append(self.get())
+
+    #each partition will call yield and seperate the lineage to different stages
+    def get_lineage(self):
+        return self.lineage
+
+    def get(self):
+        yield self
+
+class MapValue(RDD):
+    def __init__(self, parent, func):
+        super(MapValue, self).__init__()
+        self.parent = parent
+        self.func =func
+
+        #Store all the operations until now (a generator list)
+        self.lineage = []
+        self.set_lineage()
+
+    def need_repartition(self):
+        return False
+
+    def set_lineage(self):
+        parent = next(self.parent.get())
+        self.lineage = parent.get_lineage()
+        self.lineage.append(self.get())
+
+    #each partition will call yield and seperate the lineage to different stages
+    def get_lineage(self):
+        return self.lineage
+
+    def get(self):
+        yield self
+
+class Join(RDD):
+    def __init__(self, parent, rhd_rdd):
+        super(Join, self).__init__()
+        self.parent = parent
+        self.rhs_rdd = rhs_rdd
+
+        #Store all the operations until now (a generator list)
+        self.lineage = []
+        self.set_lineage()
+
+    def need_repartition(self):
+        return False
+
+    def set_lineage(self):
+        parent = next(self.parent.get())
+        self.lineage = parent.get_lineage()
+        self.lineage.append(self.get())
+
+    #each partition will call yield and seperate the lineage to different stages
+    def get_lineage(self):
+        return self.lineage
+
+    def get(self):
+        yield self
