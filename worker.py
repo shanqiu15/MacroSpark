@@ -45,8 +45,6 @@ class Worker(object):
         self.worker_index = dict(enumerate(worker_list))
 
 
-
-
 if __name__ == "__main__":
     s = zerorpc.Server(Worker())
     s.bind("tcp://" + sys.argv[1])

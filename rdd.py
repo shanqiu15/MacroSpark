@@ -12,14 +12,20 @@ class RDD(object):
     def get_parent(self):
         return self.parent
 
-    # def collect(self):
-    #     elements = []
-    #     for element in self.get():
-    #         elements.append(element)
-    #     return elements
+    def set_lineage(self):
+        self.lineage = []
+        parent = next(self.parent.get())
+        self.lineage = parent.get_lineage()
+        self.lineage.append(self.get())
 
-    # def count(self):
-    #     return len(self.collect())
+    #each partition will call yield and seperate the lineage to different stages
+    def get_lineage(self):
+        self.set_lineage()
+        return self.lineage
+
+    def get(self):
+        yield self
+
 
 class TextFile(RDD):
 
@@ -46,6 +52,7 @@ class TextFile(RDD):
     def get(self):
         yield self
 
+
 class Map(RDD):
 
     def __init__(self, parent, func):
@@ -56,23 +63,9 @@ class Map(RDD):
         #Store all the operations until now (a generator list)
         self.set_lineage()
 
-
     def need_repartition(self):
         return False
 
-    def set_lineage(self):
-        self.lineage = []
-        parent = next(self.parent.get())
-        self.lineage = parent.get_lineage()
-        self.lineage.append(self.get())
-
-    #each partition will call yield and seperate the lineage to different stages
-    def get_lineage(self):
-        self.set_lineage()
-        return self.lineage
-
-    def get(self):
-        yield self
 
 class Filter(RDD):
     
@@ -87,19 +80,6 @@ class Filter(RDD):
     def need_repartition(self):
         return False
 
-    def set_lineage(self):
-        self.lineage = []
-        parent = next(self.parent.get())
-        self.lineage = parent.get_lineage()
-        self.lineage.append(self.get())
-
-    #each partition will call yield and seperate the lineage to different stages
-    def get_lineage(self):
-        self.set_lineage()
-        return self.lineage
-
-    def get(self):
-        yield self
 
 class FlatMap(RDD):
     def __init__(self, parent, func):
@@ -113,19 +93,6 @@ class FlatMap(RDD):
     def need_repartition(self):
         return False
 
-    def set_lineage(self):
-        self.lineage = []
-        parent = next(self.parent.get())
-        self.lineage = parent.get_lineage()
-        self.lineage.append(self.get())
-
-    #each partition will call yield and seperate the lineage to different stages
-    def get_lineage(self):
-        self.set_lineage()
-        return self.lineage
-
-    def get(self):
-        yield self
 
 class ReduceByKey(RDD):
     def __init__(self, parent, func):
@@ -139,19 +106,6 @@ class ReduceByKey(RDD):
     def need_repartition(self):
         return True
 
-    def set_lineage(self):
-        self.lineage = []
-        parent = next(self.parent.get())
-        self.lineage = parent.get_lineage()
-        self.lineage.append(self.get())
-
-    #each partition will call yield and seperate the lineage to different stages
-    def get_lineage(self):
-        self.set_lineage()
-        return self.lineage
-
-    def get(self):
-        yield self
 
 class MapValue(RDD):
     def __init__(self, parent, func):
@@ -165,19 +119,6 @@ class MapValue(RDD):
     def need_repartition(self):
         return False
 
-    def set_lineage(self):
-        self.lineage = []
-        parent = next(self.parent.get())
-        self.lineage = parent.get_lineage()
-        self.lineage.append(self.get())
-
-    #each partition will call yield and seperate the lineage to different stages
-    def get_lineage(self):
-        self.set_lineage()
-        return self.lineage
-
-    def get(self):
-        yield self
 
 class Join(RDD):
     def __init__(self, parent_0, parent_1):
@@ -204,6 +145,7 @@ class Join(RDD):
 
     def get(self):
         yield self
+
 
 if __name__ == "__main__":
     r = TextFile('myfile')
