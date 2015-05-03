@@ -1,16 +1,19 @@
 from collections import defaultdict
 from itertools import groupby
 
+RDD_INDEX = 0
 
 class RDD(object):
     def __init__(self, rdd, worker_list):
         self.rdd = rdd
         self.workers  = enumerate(worker_list)
-    # def 
 
 class RDDPartition(object):
 
     def __init__(self, partition = None, partition_index = None):
+        global RDD_INDEX
+        RDD_INDEX = RDD_INDEX + 1
+        self.id = RDD_INDEX
         self.partition = partition
         self.partition_index = partition_index
         # self.workers  = enumerate(worker_list)
@@ -106,7 +109,10 @@ if __name__ == "__main__":
     t = g.partition_mapValues(lambda s: s - 4)
     x = t.getPartition()
     r = t.partition_join(x)
-    print r.getPartition()
+    # print r.getPartition()
+    # for i in range(10):
+    #     x = RDDPartition()
+    #     print x.id
     # f = m.rdd_filter(lambda a: int(a[1]) > 2)
     # print f.collect(), f.count()
 
