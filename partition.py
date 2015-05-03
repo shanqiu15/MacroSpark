@@ -6,6 +6,9 @@ class Partition(object):
         self.rdd_id = rdd_id
         self.partition_index = partition_index
 
+    def set_partition_index(self, index):
+        self.partition_index = index
+
     def collect(self):
         elements = []
         for element in self.get():
@@ -18,8 +21,8 @@ class Partition(object):
 
 class FilePartition(Partition):
 
-    def __init__(self, rdd_id, partition_index, filename):
-        super(FilePartition, self).__init__(rdd_id, partition_index)
+    def __init__(self, rdd_id, filename):
+        super(FilePartition, self).__init__(rdd_id)
         self.filename = filename
         self.lines = None
 
@@ -35,8 +38,8 @@ class FilePartition(Partition):
 
 class MapPartition(Partition):
 
-    def __init__(self,  rdd_id, partition_index, parent, func):
-        super(MapPartition, self).__init__(rdd_id, partition_index)
+    def __init__(self, rdd_id, parent, func):
+        super(MapPartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
@@ -45,10 +48,36 @@ class MapPartition(Partition):
         for element in self.parent.get():
             yield self.func(element)
 
+
+class MapValuePartition(Partition):
+
+    def __init__(self, rdd_id, parent, func):
+        super(MapValuePartition, self).__init__(rdd_id)
+        self.parent = parent
+        self.func = func
+
+    def get(self):
+        print "This is the caculation in MapValuePartition"
+        for key, value in self.parent.get():
+            yield (key, self.func(value))
+
+class FlatMapPartition(Partition):
+    def __init__(self, rdd_id, parent, func):
+        super(FlatMapPartition, self).__init__(rdd_id)
+        self.parent = parent
+        self.func = func
+
+    def get(self):
+        print "This is the caculation in mapper"
+        for element in self.parent.get():
+            for i in self.func(element):
+                yield i
+
+
 class FilterPartition(Partition):
     
-    def __init__(self,  rdd_id, partition_index, parent, func):
-        super(FilterPartition, self).__init__(rdd_id, partition_index)
+    def __init__(self,  rdd_id, parent, func):
+        super(FilterPartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
@@ -58,9 +87,38 @@ class FilterPartition(Partition):
             if self.func(element):
                 yield element
 
+class GroupByKeyPartition(Partition):
+    def __init__(self,  rdd_id, parent):
+        super(GroupByKeyPartition, self).__init__(rdd_id)
+        self.parent = parent
+
+    def get(self):
+        '''
+        This function can be optimized by not creating list directly
+        Should do the optimization later
+        '''
+        parent_rdd = [element for element in self.parent.get()]
+        sorted_rdd = sorted(parent_rdd)
+        group_rdd = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
+        for element in group_rdd:
+            yield element
+
+
+class ReduceByKeyPartition(Partition):
+    def __init__(self, rdd_id, parent, func):
+        super(ReduceByKeyPartition, self).__init__(rdd_id)
+        self.parent = parent
+        self.func = func
+
+    def get(self):
+        grouper =  GroupByKeyPartition(-1 , parent)
+        for key, group in grouper.get():
+            yield (key, reduce(self.func, group))
+
+
 class JoinPartition(Partition):
-    def __init__(self,  rdd_id, partition_index, parent_1, parent_2):
-        super(JoinPartition, self).__init__(rdd_id, partition_index)
+    def __init__(self, rdd_id, parent_1, parent_2):
+        super(JoinPartition, self).__init__(rdd_id)
         self.parent_1 = parent_1
         self.parent_2 = parent_2
 

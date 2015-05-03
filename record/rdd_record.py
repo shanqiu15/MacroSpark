@@ -78,10 +78,10 @@ class RDD(object):
         self.rdd = [(key, [i[1] for i in group]) for key, group in groupby(self.rdd, lambda x: x[0])]
         return self
 
-    def reduceByKey(self):
+    def reduceByKey(self, func):
         print "This is the caculation in reduceByKey"
         self.rdd = self.groupByKey().getRdd()
-        self.rdd = [(key, sum(group)) for key, group in self.rdd]
+        self.rdd = [(key, reduce(func, group)) for key, group in self.rdd]
         return self
 
     def mapValues(self, func):
