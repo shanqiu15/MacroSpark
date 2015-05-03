@@ -22,7 +22,7 @@ class SparkContext():
                          "ReduceByKey" : self.visitReduceByKey,
                          "MapValue"    : self.visitMapValue,
                          "Join"        : self.visitJoin,
-        }
+                        }
 
 
     def visit_lineage(self, rdd):
@@ -34,37 +34,37 @@ class SparkContext():
     def visitTextFile(self, textfile):
         print "visit TestFile.\n"
         print textfile.__class__.__name__
-        print textfile.filePath, "\n"
-        print textfile.get_parent()
+        print textfile.filePath
+        print textfile.get_parent(), "\n"
         # for i in range(len(worker_list)):
         #     r[i] = FilePartition(textfile, textfile.id, i)
 
 
     def visitMap(self, mapper):
-        print "visit Map\n"
-        print mpper.get_parent()
+        print "visit Map"
+        print mapper.get_parent(), "\n"
         # for i in range(len(worker_list)):
         #     m[i] = 
 
     def visitFilter(self, filt):
-        print "visit Filter\n"
-        print filt.get_parent
+        print "visit Filter"
+        print filt.get_parent(), "\n"
 
     def visitFlatmap(self, flatMap):
-        print "visit FlatMap\n"
-        print flatMap.get_parent()
+        print "visit FlatMap"
+        print flatMap.get_parent(), "\n"
 
     def visitReduceByKey(self, reduceByKey):
-        print "visit ReduceByKey\n"
-        print reduceByKey.get_parent()
+        print "visit ReduceByKey"
+        print reduceByKey.get_parent(), "\n"
 
     def visitMapValue(self, mapValue):
-        print "visit MapValue\n"
-        print mapValue.get_parent()
+        print "visit MapValue"
+        print mapValue.get_parent(), "\n"
 
     def visitJoin(self, join):
-        print "visit join\n"
-        print join.get_parent()
+        print "visit join"
+        print join.get_parent(),"\n"
 
     def collect(self, rdd):
         pass
