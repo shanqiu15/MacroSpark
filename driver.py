@@ -19,6 +19,14 @@ class SparkContext():
         self.operations = {}
 
         self.statges = []
+
+        #The cached intermediate rdd data {rdd_id: data}
+        self.caches = {}
+
+        #record how many rdds depend on this rdd, when one rdd's reference_counter 
+        #is zero the cached data in "caches" can be garbage collected {rdd_id: counter}
+        self.reference_counter = {}
+
         # map the inputs to the function blocks
         self.options = { "TextFile"    : self.visitTextFile,
                          "Map"         : self.visitMap,
@@ -29,11 +37,22 @@ class SparkContext():
                          "Join"        : self.visitJoin,
                         }
 
+    def _reference_counter_acc(parent_id):
+        if parent_id in self.reference_counter.keys():
+            self.reference_counter[parent_id] = self.reference_counter[parent_id] + 1
+        else:
+            self.reference_counter[parent_id] = 1
 
     def visit_lineage(self, rdd):
+
         for i in rdd.get_lineage():
             op = next(i)
+            # if op.need_repartition():
+            #     self.stage.append(pre)
+            #     self.stage.append()
             self.options[op.__class__.__name__](op)
+
+            # pre = self.operations[op.id]
 
     # define the function blocks
     def visitTextFile(self, textfile):
@@ -50,6 +69,7 @@ class SparkContext():
         print "visit Map"
         print mapper.get_parent(), "\n"
         parent = mapper.get_parent()
+        # self._reference_counter_acc(parent.id)
         self.operations[mapper.id] = MapPartition(mapper.id, self.operations[parent.id], mapper.func)
 
         # return MapPartition(rdd_id, parent, func)
@@ -60,31 +80,69 @@ class SparkContext():
         print "visit Filter"
         print filt.get_parent(), "\n"
         parent = filt.get_parent()
+        # self._reference_counter_acc(parent.id)
         self.operations[filt.id] = FilterPartition(filt.id, self.operations[parent.id], filt.func)
 
     def visitFlatmap(self, flatMap):
         print "visit FlatMap"
         print flatMap.get_parent(), "\n"
         parent = flatMap.get_parent()
+        # self._reference_counter_acc(parent.id)
         self.operations[flatMap.id] = FlatMapPartition(flatMap.id, self.operations[parent.id], flatMap.func)
 
     def visitReduceByKey(self, reduceByKey):
         print "visit ReduceByKey"
         print reduceByKey.get_parent(), "\n"
+
         parent = reduceByKey.get_parent()
-        self.operations[reduceByKey.id] = ReduceByKeyPartition(reduceByKey.id, self.operations[parent.id], reduceByKey.func)
+
+        #self.operations[parent.id].cache()
+        #self._reference_counter_acc(parent.id)
+
+        self.operations[parent.id + 1] = RePartition(parent.id + 1, self.operations[parent.id])
+        #************************************#
+        #Create a new statges after the repartition
+        #
+        #
+        self.stages.append(self.operations[parent.id + 1])
+        #
+        #
+        #***************************************
+
+        # self._reference_counter_acc(parent.id)
+        self.operations[reduceByKey.id] = ReduceByKeyPartition(reduceByKey.id, self.operations[parent.id + 1], reduceByKey.func)
 
     def visitMapValue(self, mapValue):
         print "visit MapValue"
         print mapValue.get_parent(), "\n"
         parent = mapValue.get_parent()
+        # self._reference_counter_acc(parent.id)
         self.operations[mapValue.id] = MapValuePartition(mapValue.id, self.operations[parent.id], mapValue.func)
 
     def visitJoin(self, join):
         print "visit join"
         print join.get_parent(),"\n"
         parent = mapValue.get_parent()
-        self.operations[join.id] = JoinPartition(join.id, self.operations[parent[0].id],self.operations[parent[1].id])
+
+        # self._reference_counter_acc(parent[0].id)
+        # self._reference_counter_acc(parent[1].id)
+        # self._reference_counter_acc(parent[0].id + 1)
+        # self._reference_counter_acc(parent[1].id + 1)
+
+        ##^^^^^^^^^^^^^^^^^not decided yet^^^^^^^^^^^^^^^^^^^^##
+        #self.stages.append(self.operations[parent[0].id])
+        #self.stages.append(self.operations[parent[1].id])
+        #
+        #%%%%%%%   REPARTITION HERE   %%%%%%%%%%%%%%%
+        ########################################################
+
+        self.operations[parent[0].id + 1] = RePartition(parent[0].id + 1, self.operations[parent[0].id])
+        self.stages.append(self.operations[parent[0].id + 1])
+
+        self.operations[parent[1].id + 1] = RePartition(parent[1].id + 1, self.operations[parent[1].id])
+        self.stages.append(self.operations[parent[1].id + 1])
+        
+        self.operations[join.id] = JoinPartition(join.id, self.operations[parent[0].id + 1],self.operations[parent[1].id + 1])
 
     def collect(self, rdd):
         pass

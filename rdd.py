@@ -5,8 +5,10 @@ class RDD(object):
     def __init__(self):
 
         #Set a unique id for the RDD
+        #ID will plus 2 here, so when we need a repartition between two RDDs
+        #The id for the repartition result could be (RDD_ID_1+RDD_ID_2)/2
         global RDD_ID
-        RDD_ID = RDD_ID + 1
+        RDD_ID = RDD_ID + 2
         self.id = RDD_ID
 
     def get_parent(self):
