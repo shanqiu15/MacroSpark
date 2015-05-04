@@ -95,7 +95,6 @@ class FlatMap(RDD):
     def need_repartition(self):
         return False
 
-
 class ReduceByKey(RDD):
     def __init__(self, parent, func):
         super(ReduceByKey, self).__init__()
@@ -148,6 +147,15 @@ class Join(RDD):
     def get(self):
         yield self
 
+
+class RePartition(RDD):
+    def __init__(self, parent, func = None):
+        super(RePartition, self).__init__()
+        self.parent = parent
+        self.func = func
+
+    def need_repartition(self):
+        return False
 
 if __name__ == "__main__":
     r = TextFile('myfile')

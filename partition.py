@@ -235,7 +235,7 @@ class RePartition(Partition):
             for element in self.parent.get():
                 if self.func(element) in self.split_result.keys():
                     self.split_result[self.func(element)].append(element)
-                else:    
+                else:
                     self.split_result[self.func(element)] = [element]
 
             #Initiallize self.data
@@ -246,7 +246,7 @@ class RePartition(Partition):
             #for con in connections:
             #    part_data = con.send_split(self.partition_index)
             #    self.data = self.data + ...
-            #After got all the split
+            #After send all the split
             #Call driver to get the next stage
             ###########################################
             self.is_cached = True
