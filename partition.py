@@ -5,7 +5,7 @@ class Partition(object):
     def __init__(self, rdd_id, partition_index = None):
         self.rdd_id = rdd_id
         self.partition_index = partition_index
-        self.data = None
+        self.data = []
         self.is_cached = False
 
     def set_partition_index(self, index):
@@ -20,6 +20,13 @@ class Partition(object):
     def show(self):
         for elem in self.get():
             print elem
+
+    def get_data(self):
+        if self.is_cached:
+            return self.data
+        else:
+            self.cache()
+            return self.data
 
 
 class FilePartition(Partition):
@@ -42,7 +49,8 @@ class FilePartition(Partition):
         f = open(self.filename)
         self.data = f.readlines()
         f.close()
-        self.is_cached = True        
+        self.is_cached = True
+        #return self    
 
 
 class MapPartition(Partition):
@@ -64,6 +72,7 @@ class MapPartition(Partition):
     def cache(self):
         self.data = [element for element in self.parent.get()]
         self.is_cached = True
+        #return self
 
 
 class MapValuePartition(Partition):
@@ -85,6 +94,7 @@ class MapValuePartition(Partition):
     def cache(self):
         self.data = [(key, self.func(value)) for key, value in self.parent.get()]
         self.is_cached = True
+        #return self
 
 
 class FlatMapPartition(Partition):
@@ -109,6 +119,7 @@ class FlatMapPartition(Partition):
             for i in self.func(element):
                 self.data.append[i]
         self.is_cached = True
+        #return self
 
 
 class FilterPartition(Partition):
@@ -131,6 +142,7 @@ class FilterPartition(Partition):
     def cache(self):
         self.data = [element for element in self.parent.get() if self.func(element)]
         self.is_cached = True
+        #return self
 
 
 class GroupByKeyPartition(Partition):
@@ -158,6 +170,7 @@ class GroupByKeyPartition(Partition):
         sorted_rdd = sorted(parent_rdd)
         self.data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
         self.is_cached = True
+        #return self
 
 
 class ReduceByKeyPartition(Partition):
@@ -179,6 +192,7 @@ class ReduceByKeyPartition(Partition):
         grouper =  GroupByKeyPartition(-1 , parent) 
         self.data = [(key, reduce(self.func, group)) for key, group in grouper.get()]
         self.is_cached = True
+        #return self
 
 
 class JoinPartition(Partition):
@@ -210,7 +224,8 @@ class JoinPartition(Partition):
                 if i[0] == j[0]:
                     self.data.append((i[0], (i[1], j[1])))
 
-        self.is_cached = True  
+        self.is_cached = True
+        #return self
 
 
 
@@ -234,21 +249,35 @@ class RePartition(Partition):
             raise Exception("no data available")
 
     def cache(self):
+        self.data = []
         for element in self.parent.get():
             if self.func(element) in self.split_result.keys():
                 self.split_result[self.func(element)].append(element)
             else:
                 self.split_result[self.func(element)] = [element]
         #Initiallize self.data
-        self.data = self.split_result[self.partition_index]
+        self.data = self.data + self.split_result[self.partition_index]
+
+        for index, worker in enumerate(worker_list):
+            if self.spartition_index != index:
+                c = zerorpc.Client(timeout=1)
+                c.connect("tcp://" + worker)
+                self.connections.append(c)
+                part_data = conn.send_data(self.split_result[index])
+
         #Use zeroRPC call other workers get other parts of data from other workers
-        #for con in connections:
-        #    part_data = con.send_split(self.partition_index)
+            
         #    self.data = self.data + ...
         #After send all the split
         #Call driver to get the next stage
         ###########################################
         self.is_cached = True
+        #return self
+
+    def send_data(self, split):
+        self.data = self.data + split
+
+
 
 
 if __name__ == "__main__":

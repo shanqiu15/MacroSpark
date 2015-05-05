@@ -3,17 +3,15 @@ from partition import *
 
 class SparkContext():
 
-    # def __init__(self, worker_list):
-    #     #setup cluster worker connections
-    #     self.workers  = worker_list
-    #     self.connections = []
-    #     for index, worker in enumerate(worker_list):
-    #         if self.index != index:
-    #             c = zerorpc.Client(timeout=1)
-    #             c.connect("tcp://" + worker)
-    #             self.connections.append(c)
-
-    def __init__(self):
+    def __init__(self, worker_list):
+        #setup cluster worker connections
+        self.workers  = worker_list
+        self.connections = []
+        for index, worker in enumerate(worker_list):
+            if self.index != index:
+                c = zerorpc.Client(timeout=1)
+                c.connect("tcp://" + worker)
+                self.connections.append(c)
 
         #key: rdd_id, value: partition operation object
         self.operations = {}
@@ -45,15 +43,28 @@ class SparkContext():
             self.reference_counter[parent_id] = 1
 
     def visit_lineage(self, rdd):
-        last_id = 0
+        self.last_id = 0
         for i in rdd.get_lineage():
             op = next(i)
             self.options[op.__class__.__name__](op)
-            last_id = op.id
-        stages.append(self.operations[last_id])
+            self.last_id = op.id
+        stages.append(self.operations[self.last_id])
 
     def execute():
+        i = 0
         for stage in satges:
+            print "the result of stage %d:", i
+            print stage.cache() #call cache in each stage to triger the execution
+
+
+
+    # def collect(rdd):
+    #     '''
+    #     An rdd object which need to be collected
+    #     '''
+    #     self.operations[rdd.id]
+
+
             
 
     # define the function blocks

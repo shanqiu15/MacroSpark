@@ -162,6 +162,8 @@ class RePartition(RDD):
     def need_repartition(self):
         return False
 
+
+
 if __name__ == "__main__":
     r = TextFile('myfile')
     m = Map(r, lambda s: s.split())
