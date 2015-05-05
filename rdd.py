@@ -97,8 +97,9 @@ class FlatMap(RDD):
 
 class ReduceByKey(RDD):
     def __init__(self, parent, func):
+        self.parent = RePartition(parent)
         super(ReduceByKey, self).__init__()
-        self.parent = parent
+        # self.parent = parent
         self.func = func
 
         #Store all the operations until now (a generator list)
@@ -123,9 +124,11 @@ class MapValue(RDD):
 
 class Join(RDD):
     def __init__(self, parent_0, parent_1):
+        self.parent = []
+        self.parent.append(RePartition(parent_0))
+        self.parent.append(RePartition(parent_1))
         super(Join, self).__init__()
-        self.parent = [parent_0, parent_1]
-
+        # self.parent = [parent_0, parent_1]
         #Store all the operations until now (a generator list)
         self.set_lineage()
 
@@ -151,6 +154,8 @@ class Join(RDD):
 class RePartition(RDD):
     def __init__(self, parent, func = None):
         super(RePartition, self).__init__()
+
+        #Split the lineage stage befor each repartition
         self.parent = parent
         self.func = func
 

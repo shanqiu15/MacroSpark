@@ -2,10 +2,9 @@ from itertools import groupby
 
 class Partition(object):
 
-    def __init__(self, rdd_id, worker_list = None, partition_index = None):
+    def __init__(self, rdd_id, partition_index = None):
         self.rdd_id = rdd_id
         self.partition_index = partition_index
-        self.worker_list = worker_list
         self.data = None
         self.is_cached = False
 
@@ -25,8 +24,8 @@ class Partition(object):
 
 class FilePartition(Partition):
 
-    def __init__(self, rdd_id, filename, worker_list = None):
-        super(FilePartition, self).__init__(rdd_id, worker_list)
+    def __init__(self, rdd_id, filename):
+        super(FilePartition, self).__init__(rdd_id)
         self.filename = filename
 
     def get(self):
@@ -48,8 +47,8 @@ class FilePartition(Partition):
 
 class MapPartition(Partition):
 
-    def __init__(self, rdd_id, parent, func, worker_list = None):
-        super(MapPartition, self).__init__(rdd_id, worker_list)
+    def __init__(self, rdd_id, parent, func):
+        super(MapPartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
@@ -69,8 +68,8 @@ class MapPartition(Partition):
 
 class MapValuePartition(Partition):
 
-    def __init__(self, rdd_id, parent, func, worker_list = None):
-        super(MapValuePartition, self).__init__(rdd_id, worker_list)
+    def __init__(self, rdd_id, parent, func):
+        super(MapValuePartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
@@ -89,8 +88,8 @@ class MapValuePartition(Partition):
 
 
 class FlatMapPartition(Partition):
-    def __init__(self, rdd_id, parent, func, worker_list = None):
-        super(FlatMapPartition, self).__init__(rdd_id, worker_list)
+    def __init__(self, rdd_id, parent, func):
+        super(FlatMapPartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
@@ -114,8 +113,8 @@ class FlatMapPartition(Partition):
 
 class FilterPartition(Partition):
     
-    def __init__(self,  rdd_id, parent, func, worker_list = None):
-        super(FilterPartition, self).__init__(rdd_id, worker_list)
+    def __init__(self,  rdd_id, parent, func):
+        super(FilterPartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
@@ -135,8 +134,8 @@ class FilterPartition(Partition):
 
 
 class GroupByKeyPartition(Partition):
-    def __init__(self,  rdd_id, parent, worker_list = None):
-        super(GroupByKeyPartition, self).__init__(rdd_id, worker_list)
+    def __init__(self,  rdd_id, parent):
+        super(GroupByKeyPartition, self).__init__(rdd_id)
         self.parent = parent
 
     def get(self):
@@ -162,8 +161,8 @@ class GroupByKeyPartition(Partition):
 
 
 class ReduceByKeyPartition(Partition):
-    def __init__(self, rdd_id, parent, func, worker_list = None):
-        super(ReduceByKeyPartition, self).__init__(rdd_id, worker_list)
+    def __init__(self, rdd_id, parent, func):
+        super(ReduceByKeyPartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
@@ -183,8 +182,8 @@ class ReduceByKeyPartition(Partition):
 
 
 class JoinPartition(Partition):
-    def __init__(self, rdd_id, parent_1, parent_2, worker_list = None):
-        super(JoinPartition, self).__init__(rdd_id, worker_list)
+    def __init__(self, rdd_id, parent_1, parent_2):
+        super(JoinPartition, self).__init__(rdd_id)
         self.parent_1 = parent_1
         self.parent_2 = parent_2
 
@@ -218,10 +217,11 @@ class JoinPartition(Partition):
 #RePartition rdd_id = parent.id + 1 
 class RePartition(Partition):
     def __init__(self, rdd_id, parent, worker_list, func = None):
-        super(RePartition, self).__init__(rdd_id, worker_list)
+        super(RePartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
         self.split_result = {}
+        self.worker_list = worker_list
 
     def get(self):
         '''
@@ -231,26 +231,24 @@ class RePartition(Partition):
             for element in self.data:
                 yield element
         else:
-            print "************repatition hasn't been implemented yet*************"
-            for element in self.parent.get():
-                if self.func(element) in self.split_result.keys():
-                    self.split_result[self.func(element)].append(element)
-                else:
-                    self.split_result[self.func(element)] = [element]
+            raise Exception("no data available")
 
-            #Initiallize self.data
-            self.data = self.split_result[self.partition_index]
-
-            ###########################################
-            #Use zeroRPC call other workers get other parts of data from other workers
-            #for con in connections:
-            #    part_data = con.send_split(self.partition_index)
-            #    self.data = self.data + ...
-            #After send all the split
-            #Call driver to get the next stage
-            ###########################################
-            self.is_cached = True
-
+    def cache(self):
+        for element in self.parent.get():
+            if self.func(element) in self.split_result.keys():
+                self.split_result[self.func(element)].append(element)
+            else:
+                self.split_result[self.func(element)] = [element]
+        #Initiallize self.data
+        self.data = self.split_result[self.partition_index]
+        #Use zeroRPC call other workers get other parts of data from other workers
+        #for con in connections:
+        #    part_data = con.send_split(self.partition_index)
+        #    self.data = self.data + ...
+        #After send all the split
+        #Call driver to get the next stage
+        ###########################################
+        self.is_cached = True
 
 
 if __name__ == "__main__":

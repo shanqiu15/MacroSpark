@@ -18,7 +18,7 @@ class SparkContext():
         #key: rdd_id, value: partition operation object
         self.operations = {}
 
-        self.statges = []
+        self.stages = []
 
         #The cached intermediate rdd data {rdd_id: data}
         self.caches = {}
@@ -35,6 +35,7 @@ class SparkContext():
                          "ReduceByKey" : self.visitReduceByKey,
                          "MapValue"    : self.visitMapValue,
                          "Join"        : self.visitJoin,
+                         "RePartition" : self.visitRepartition,
                         }
 
     def _reference_counter_acc(parent_id):
@@ -44,15 +45,16 @@ class SparkContext():
             self.reference_counter[parent_id] = 1
 
     def visit_lineage(self, rdd):
-
+        last_id = 0
         for i in rdd.get_lineage():
             op = next(i)
-            # if op.need_repartition():
-            #     self.stage.append(pre)
-            #     self.stage.append()
             self.options[op.__class__.__name__](op)
+            last_id = op.id
+        stages.append(self.operations[last_id])
 
-            # pre = self.operations[op.id]
+    def execute():
+        for stage in satges:
+            
 
     # define the function blocks
     def visitTextFile(self, textfile):
@@ -99,18 +101,7 @@ class SparkContext():
         #self.operations[parent.id].cache()
         #self._reference_counter_acc(parent.id)
 
-        self.operations[parent.id + 1] = RePartition(parent.id + 1, self.operations[parent.id])
-        #************************************#
-        #Create a new statges after the repartition
-        #
-        #
-        self.stages.append(self.operations[parent.id + 1])
-        #
-        #
-        #***************************************
-
-        # self._reference_counter_acc(parent.id)
-        self.operations[reduceByKey.id] = ReduceByKeyPartition(reduceByKey.id, self.operations[parent.id + 1], reduceByKey.func)
+        self.operations[reduceByKey.id] = ReduceByKeyPartition(reduceByKey.id, self.operations[parent.id], reduceByKey.func)
 
     def visitMapValue(self, mapValue):
         print "visit MapValue"
@@ -125,24 +116,20 @@ class SparkContext():
         parent = mapValue.get_parent()
 
         # self._reference_counter_acc(parent[0].id)
-        # self._reference_counter_acc(parent[1].id)
-        # self._reference_counter_acc(parent[0].id + 1)
-        # self._reference_counter_acc(parent[1].id + 1)
+        # self._reference_counter_acc(parent[1].id) 
+        self.operations[join.id] = JoinPartition(join.id, self.operations[parent[0].id],self.operations[parent[1].id])
 
-        ##^^^^^^^^^^^^^^^^^not decided yet^^^^^^^^^^^^^^^^^^^^##
-        #self.stages.append(self.operations[parent[0].id])
-        #self.stages.append(self.operations[parent[1].id])
-        #
-        #%%%%%%%   REPARTITION HERE   %%%%%%%%%%%%%%%
-        ########################################################
+    def visitRepartition(self, repartition):
+        print "visit repartition"
+        print repartition.get_parent(), "\n"
+        parent = repartition.get_parent()
 
-        self.operations[parent[0].id + 1] = RePartition(parent[0].id + 1, self.operations[parent[0].id])
-        self.stages.append(self.operations[parent[0].id + 1])
+        self.stages.append(self.operations[parent.id])
 
-        self.operations[parent[1].id + 1] = RePartition(parent[1].id + 1, self.operations[parent[1].id])
-        self.stages.append(self.operations[parent[1].id + 1])
+        self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], worker_list)
         
-        self.operations[join.id] = JoinPartition(join.id, self.operations[parent[0].id + 1],self.operations[parent[1].id + 1])
+        self.stages.append(self.operations[repartition.id])
+        
 
     def collect(self, rdd):
         pass
