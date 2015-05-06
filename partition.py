@@ -31,9 +31,10 @@ class Partition(object):
 
 class FilePartition(Partition):
 
-    def __init__(self, rdd_id, filename):
+    def __init__(self, rdd_id, filename, worker_num):
         super(FilePartition, self).__init__(rdd_id)
         self.filename = filename
+        self.partition_num = worker_num
 
     def get(self):
         print "This is the get in TextFile"

@@ -96,7 +96,7 @@ class SparkContext():
         print textfile.__class__.__name__
         print textfile.filePath
 
-        self.operations[textfile.id] = FilePartition(textfile.id, textfile.filePath)
+        self.operations[textfile.id] = FilePartition(textfile.id, textfile.filePath, len(self.workers))
         # for i in range(len(worker_list)):
         #     r[i] = FilePartition(textfile, textfile.id, i)
 
