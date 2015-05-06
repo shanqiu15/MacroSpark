@@ -16,17 +16,14 @@ class RDD(object):
 
     def set_lineage(self):
         self.lineage = []
-        parent = next(self.parent.get())
+        parent = self.get_parent()
         self.lineage = parent.get_lineage()
-        self.lineage.append(self.get())
+        self.lineage.append(self)
 
     #each partition will call yield and seperate the lineage to different stages
     def get_lineage(self):
         self.set_lineage()
         return self.lineage
-
-    def get(self):
-        yield self
 
 
 class TextFile(RDD):
@@ -44,15 +41,7 @@ class TextFile(RDD):
 
     def set_lineage(self):
         self.lineage = []
-        self.lineage.append(self.get())
-
-    #each partition will call yield and seperate the lineage to different stages
-    def get_lineage(self):
-        self.set_lineage()
-        return self.lineage
-
-    def get(self):
-        yield self
+        self.lineage.append(self)
 
 
 class Map(RDD):
@@ -137,18 +126,10 @@ class Join(RDD):
 
     def set_lineage(self):
         self.lineage = []
-        parent_0 = next(self.parent[0].get())
-        parent_1 = next(self.parent[1].get())
+        parent_0 = self.parent[0]
+        parent_1 = self.parent[1]
         self.lineage = parent_0.get_lineage() + parent_1.get_lineage()
-        self.lineage.append(self.get())
-
-    #each partition will call yield and seperate the lineage to different stages
-    def get_lineage(self):
-        self.set_lineage()
-        return self.lineage
-
-    def get(self):
-        yield self
+        self.lineage.append(self)
 
 
 class RePartition(RDD):
@@ -175,8 +156,7 @@ if __name__ == "__main__":
     m2 = Map(r, lambda s: s.split())
     j = Join(f, m2)
 
-    for i in j.get_lineage():
-        op = next(i)
+    for op in j.get_lineage():
         print op.id
         print op.__class__.__name__
     # i = r.get_lineage().pop()

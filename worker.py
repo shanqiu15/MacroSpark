@@ -31,13 +31,15 @@ class Worker(object):
                 self.worker_conn[index] = c
             else:
                 self.index = index
+        print "worker connection: ", self.worker_conn
 
         self.driver_conn = zerorpc.Client(timeout=1)
         self.driver_conn.connect("tcp://" + driver_addr)
+        print "driver connection: ", self.driver_conn
+
 
     def setup_partition_con(self, rdd_id):
         self.rdd_partition[rdd_id].setup_connections(self.worker_conn, self.driver_conn)
-        pass
 
     def run(self, objstr):
         input = StringIO.StringIO(objstr)
@@ -54,10 +56,14 @@ class Worker(object):
     def getPartition(self, rdd_id):
         return self.rdd_partition[rdd_id]
 
+    def call_hello(self):
+        print "Connected Successfully"
+        return "Worker " + self.addr + " runs successfully"
+
 
 
 if __name__ == "__main__":
     worker = Worker(sys.argv[1])
-    s = zerorpc.Server(Worker())
+    s = zerorpc.Server(worker)
     s.bind("tcp://" + sys.argv[1])
     s.run()
