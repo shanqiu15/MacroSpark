@@ -7,11 +7,11 @@ class SparkContext():
         #setup cluster worker connections
         self.workers  = worker_list
         self.connections = []
-        for index, worker in enumerate(worker_list):
-            if self.index != index:
-                c = zerorpc.Client(timeout=1)
-                c.connect("tcp://" + worker)
-                self.connections.append(c)
+        # for index, worker in enumerate(worker_list):
+        #     if self.index != index:
+        #         c = zerorpc.Client(timeout=1)
+        #         c.connect("tcp://" + worker)
+        #         self.connections.append(c)
 
         #key: rdd_id, value: partition operation object
         self.operations = {}
@@ -48,15 +48,20 @@ class SparkContext():
             op = next(i)
             self.options[op.__class__.__name__](op)
             self.last_id = op.id
-        stages.append(self.operations[self.last_id])
+        self.stages.append(self.operations[self.last_id])
+        print self.stages
 
-    def execute():
+    def execute(self):
         i = 0
-        for stage in satges:
-            print "the result of stage %d:", i
-            print stage.cache() #call cache in each stage to triger the execution
+        for stage in self.stages:
+            print "the result of stage list:"
+            for conn in self.connections:
+                #?????? stage.cache() #call cache in each stage to triger the execution
+                pass
+            
 
-
+    def execution_acc(self, rdd_id):
+        self.execution_counter 
 
     # def collect(rdd):
     #     '''
@@ -124,7 +129,7 @@ class SparkContext():
     def visitJoin(self, join):
         print "visit join"
         print join.get_parent(),"\n"
-        parent = mapValue.get_parent()
+        parent = join.get_parent()
 
         # self._reference_counter_acc(parent[0].id)
         # self._reference_counter_acc(parent[1].id) 
@@ -137,7 +142,7 @@ class SparkContext():
 
         self.stages.append(self.operations[parent.id])
 
-        self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], worker_list)
+        self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], self.workers)
         
         self.stages.append(self.operations[repartition.id])
         
@@ -159,10 +164,11 @@ if __name__ == "__main__":
     mv = MapValue(f, lambda s:s)
     r = ReduceByKey(mv, lambda x, y: x + y)
     # print f.collect(), f.count()
-
+    z = Filter(m, lambda a: int(a[1]) < 2)
+    j = Join(z, r)
     
-    sc = SparkContext()
-    sc.visit_lineage(r)
+    sc = SparkContext(["127.0.0.1:9000", "127.0.0.1:9001"])
+    sc.visit_lineage(j)
     # for i in r.get_lineage():
     #     op = next(i)
     #     print op.id

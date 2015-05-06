@@ -231,12 +231,18 @@ class JoinPartition(Partition):
 
 #RePartition rdd_id = parent.id + 1 
 class RePartition(Partition):
-    def __init__(self, rdd_id, parent, worker_list, func = None):
+    def __init__(self, rdd_id, parent,func = None):
         super(RePartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
         self.split_result = {}
-        self.worker_list = worker_list
+        self.worker_conn = None
+        self.driver = None
+
+
+    def setup_connections(worker_conn, driver_conn):        
+        self.driver_conn = driver_conn
+        self.worker_conn = worker_conn
 
     def get(self):
         '''
@@ -249,32 +255,22 @@ class RePartition(Partition):
             raise Exception("no data available")
 
     def cache(self):
-        self.data = []
         for element in self.parent.get():
             if self.func(element) in self.split_result.keys():
                 self.split_result[self.func(element)].append(element)
             else:
                 self.split_result[self.func(element)] = [element]
+
         #Initiallize self.data
         self.data = self.data + self.split_result[self.partition_index]
 
-        for index, worker in enumerate(worker_list):
-            if self.spartition_index != index:
-                c = zerorpc.Client(timeout=1)
-                c.connect("tcp://" + worker)
-                self.connections.append(c)
-                part_data = conn.send_data(self.split_result[index])
+        for index, conn in self.worker_conn:
+            conn.collect_data(self.split_result[index])
 
-        #Use zeroRPC call other workers get other parts of data from other workers
-            
-        #    self.data = self.data + ...
-        #After send all the split
-        #Call driver to get the next stage
-        ###########################################
         self.is_cached = True
-        #return self
+        return self.partition_index
 
-    def send_data(self, split):
+    def collect_data(self, split):
         self.data = self.data + split
 
 

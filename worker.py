@@ -13,14 +13,31 @@ from partition import *
 
 class Worker(object):
 
-    def __init__(self):
+    def __init__(self, addr):
         #gevent.spawn(self.controller)
-        self.rddPartition = None
+        self.addr = addr
 
         #Rdd partition key value pair {rdd_id: partition object}
         #Each time when you want to get the relevent partition using self.rdd_partition[rdd_id]
         self.rdd_partition = {}
       
+    def setup_worker_con(self,worker_list, driver_addr):
+        self.worker_list  = worker_list
+        self.worker_conn = {}
+        for index, worker in enumerate(worker_list):
+            if self.addr != worker:
+                c = zerorpc.Client(timeout=1)
+                c.connect("tcp://" + worker)
+                self.worker_conn[index] = c
+            else:
+                self.index = index
+
+        self.driver_conn = zerorpc.Client(timeout=1)
+        self.driver_conn.connect("tcp://" + driver_addr)
+
+    def setup_partition_con(self, rdd_id):
+        self.rdd_partition[rdd_id].setup_connections(self.worker_conn, self.driver_conn)
+        pass
 
     def run(self, objstr):
         input = StringIO.StringIO(objstr)
@@ -40,6 +57,7 @@ class Worker(object):
 
 
 if __name__ == "__main__":
+    worker = Worker(sys.argv[1])
     s = zerorpc.Server(Worker())
     s.bind("tcp://" + sys.argv[1])
     s.run()
