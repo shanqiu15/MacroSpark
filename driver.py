@@ -4,25 +4,29 @@ import logging
 import zerorpc
 import StringIO
 import pickle
+import sys
 
 import cloudpickle
 import gevent
 
 class SparkContext():
 
-    def __init__(self, worker_list):
+    def __init__(self, worker_list, addr):
         #setup cluster worker connections
         self.workers  = worker_list
+        self.addr = addr
         self.connections = []
         for index, worker in enumerate(worker_list):
             c = zerorpc.Client(timeout=1)
             c.connect("tcp://" + worker)
+            c.setup_worker_con(worker_list, self.addr)
             self.connections.append(c)
 
         #key: rdd_id, value: partition operation object
         self.operations = {}
 
         self.stages = []
+        self.repartition_stages = []
 
         #The cached intermediate rdd data {rdd_id: data}
         self.caches = {}
@@ -49,10 +53,17 @@ class SparkContext():
             self.reference_counter[parent_id] = 1
 
     def visit_lineage(self, rdd):
+
+        #initialize repartition list and the stage list
+        self.repartition_stages = []
+        self.stages = []
+
         self.last_id = 0
         for op in rdd.get_lineage():
             self.options[op.__class__.__name__](op)
             self.last_id = op.id
+
+        #add the last operation to the stages list
         self.stages.append(self.operations[self.last_id])
         print self.stages
         return self.operations
@@ -69,16 +80,40 @@ class SparkContext():
 
 
     def execute(self):
+        '''
+        ***************************
+        Should use Gevent
+        ***************************
+        '''
+
         i = 0
         for stage in self.stages:
             for conn in self.connections:
+
                 #?????? stage.cache() #call cache in each stage to triger the execution
-                print "this is the execution for stage"
-                pass
+                print "this is the execution for worker", i, "\n"
+                #############
+                output = StringIO.StringIO()
+                pickler = cloudpickle.CloudPickler(output)
+                pickler.dump(stage)
+                objstr = output.getvalue()
+                conn.run(objstr)
+
+                #############
+                if stage.rdd_id in self.repartition_stages:
+                    elf.is_reparted[stage.id] = False
+                    while(not self.is_reparted[stage.id]):
+                        sleep()
+                #############
+
+                    #
+                    #wait until 
+                    #
+                i = i + 1
             
 
     def execution_acc(self, rdd_id):
-        self.execution_counter 
+        pass
 
     # def collect(rdd):
     #     '''
@@ -161,9 +196,18 @@ class SparkContext():
         self.stages.append(self.operations[parent.id])
 
         self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], self.workers)
-        
+        self.repartition_stages.append(repartition.id)
         self.stages.append(self.operations[repartition.id])
-        
+
+    def repartition_acc(self, rdd_id):
+        self.repartition_counter = self.repartition_counter + 1
+        if self.repartition_counter == len(self.workers):
+            '''repartitioned successfully'''
+            self.is_reparted[rdd_id] = True
+            self.repartition_counter = 0
+        else:
+            '''not finished yet'''
+            self.is_reparted[rdd_id] = False
 
     def collect(self, rdd):
         pass
@@ -173,25 +217,44 @@ class SparkContext():
 
 if __name__ == "__main__":
 
-    # r = TextFile('myfile')
-    # m = Map(r, lambda s: s.split())
-    # f = Filter(m, lambda a: int(a[1]) > 2)
-    # mv = MapValue(f, lambda s:s)
+    r = TextFile('myfile')
+    m = Map(r, lambda s: s.split())
+    f = Filter(m, lambda a: int(a[1]) > 2)
+    mv = MapValue(f, lambda s:s)
     # r = ReduceByKey(mv, lambda x, y: x + y)
-    # z = Filter(m, lambda a: int(a[1]) < 2)
+    z = Filter(m, lambda a: int(a[1]) < 2)
     # j = Join(z, r)
+
+
+
+    #Setup the driver and worker
     worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003"]
-    sc = SparkContext(worker_list)
-    # sc.visit_lineage(j)
+    sc = SparkContext(worker_list, sys.argv[1])
+
+    threads = [gevent.spawn(conn.setup_worker_con, worker_list, "127.0.0.1:4242") for conn in sc.connections]
+    gevent.joinall(threads)
+
+
+
+    # for conn in sc.connections:
+    #     print conn.call_hello()
+    #     conn.setup_worker_con(worker_list, "127.0.0.1:4242")
+    #     conn.setup_repartition(sc.repartition_stages)
+
+
+    #the process of caculate RDD "z"
+    sc.visit_lineage(z)
+    threads = [gevent.spawn(conn.setup_repartition, sc.repartition_stages) for conn in sc.connections]
+    gevent.joinall(threads)
+    sc.execute()
+
     # print sc.operations
 
 
 
-    for conn in sc.connections:
-        print conn.call_hello()
-        conn.setup_worker_con(worker_list, "127.0.0.1:4242")
 
+    
     logging.basicConfig()
     s = zerorpc.Server(sc)
-    s.bind("tcp://0.0.0.0:4242")
+    s.bind("tcp://" + sys.argv[1])
     s.run()

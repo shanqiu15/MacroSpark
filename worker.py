@@ -37,6 +37,18 @@ class Worker(object):
         self.driver_conn.connect("tcp://" + driver_addr)
         print "driver connection: ", self.driver_conn
 
+    def stage_test(self, objstr):
+        '''
+        Send the partition object to the client and execute the clousure
+        '''
+        client_input = StringIO.StringIO(objstr)
+        unpickler = pickle.Unpickler(client_input)
+        j = unpickler.load()
+        j.cache()
+        return str(lineage)
+
+    def setup_repartition(self, repartition_rdd):
+        self.repartition_rdd = repartition_rdd
 
     def setup_partition_con(self, rdd_id):
         self.rdd_partition[rdd_id].setup_connections(self.worker_conn, self.driver_conn)
@@ -48,6 +60,11 @@ class Worker(object):
 
         #record this rdd partition and execute this clousure
         self.rdd_partition[f.rdd_id] = f
+
+        #setup the connections for repartition rdd
+        if f.rdd_id in self.repartition_rdd:
+            f.setup_connections(self.worker_conn, self.driver_conn)
+
         f.cache()
 
     def collect(self, rdd_id):

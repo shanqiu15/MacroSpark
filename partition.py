@@ -51,7 +51,8 @@ class FilePartition(Partition):
         self.data = f.readlines()
         f.close()
         self.is_cached = True
-        #return self    
+        print self.data
+        print "Cached the result for FilePartition" 
 
 
 class MapPartition(Partition):
@@ -73,6 +74,8 @@ class MapPartition(Partition):
     def cache(self):
         self.data = [element for element in self.parent.get()]
         self.is_cached = True
+        print self.data
+        print "Cache the result for MapPartition"
         #return self
 
 
@@ -95,6 +98,8 @@ class MapValuePartition(Partition):
     def cache(self):
         self.data = [(key, self.func(value)) for key, value in self.parent.get()]
         self.is_cached = True
+        print self.data
+        print "Cache the result for MapValuePartition"
         #return self
 
 
@@ -120,6 +125,8 @@ class FlatMapPartition(Partition):
             for i in self.func(element):
                 self.data.append[i]
         self.is_cached = True
+        print self.data
+        print "Cache the result for FlatMapPartition"
         #return self
 
 
@@ -143,6 +150,8 @@ class FilterPartition(Partition):
     def cache(self):
         self.data = [element for element in self.parent.get() if self.func(element)]
         self.is_cached = True
+        print self.data
+        print "Cache the result for FilePartition"
         #return self
 
 
@@ -171,6 +180,8 @@ class GroupByKeyPartition(Partition):
         sorted_rdd = sorted(parent_rdd)
         self.data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
         self.is_cached = True
+        print self.data
+        print "Cache the result for GroupByKeyPartition"
         #return self
 
 
@@ -193,6 +204,8 @@ class ReduceByKeyPartition(Partition):
         grouper =  GroupByKeyPartition(-1 , parent) 
         self.data = [(key, reduce(self.func, group)) for key, group in grouper.get()]
         self.is_cached = True
+        print self.data
+        print "Cache the result for ReduceByKeyPartition"
         #return self
 
 
@@ -226,6 +239,8 @@ class JoinPartition(Partition):
                     self.data.append((i[0], (i[1], j[1])))
 
         self.is_cached = True
+        print self.data
+        print "Cache the data for JoinPartition"
         #return self
 
 
@@ -269,6 +284,9 @@ class RePartition(Partition):
             conn.collect_data(self.split_result[index])
 
         self.is_cached = True
+        self.driver_conn.repartition_acc()
+        print self.data
+        print "Cache the data for the RePartition"
         return self.partition_index
 
     def collect_data(self, split):
