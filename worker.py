@@ -58,11 +58,10 @@ class Worker(object):
         #setup the connections for repartition rdd
         f.setup_connections(self.worker_conn, self.driver_conn, self.index)
 
-        f.set_start_stage(self.rdd_partition)
+        f.cache(self.rdd_partition)
+        
         #record this rdd partition and execute this clousure
         self.rdd_partition[f.rdd_id] = f
-
-        f.cache()
         print "This is the caculation for ", f.rdd_id
         print f.data
 

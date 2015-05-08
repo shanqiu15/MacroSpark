@@ -11,11 +11,20 @@ class Partition(object):
     def set_partition_index(self, index):
         self.partition_index = index
 
-    def set_start_stage(self,rdd_partition):
-        '''
-        This method should be overwrite for join and FilePartition
-        Because join has two parent and FilePartition has no parent
-        '''
+    # def set_start_stage(self,rdd_partition):
+    #     '''
+    #     This method should be overwrite for join and FilePartition
+    #     Because join has two parent and FilePartition has no parent
+    #     '''
+    #     if self.parent is None:
+    #         return
+    #     else:
+    #         while True:
+    #             parent = self.parent
+    #             if parent.rdd_id in rdd_partition.keys():
+    #                 self.parent = rdd_partition[parent.rdd_id]
+    #             :
+
 
 
 
@@ -64,7 +73,7 @@ class FilePartition(Partition):
         self.partition_num = worker_num
         self.parent = None
 
-    def get(self):
+    def get(self, rdd_partition = None):
         if not self.data:
             f = open(self.filename)
             self.data = f.readlines()
@@ -73,7 +82,7 @@ class FilePartition(Partition):
         for line in self.data:
             yield line
 
-    def cache(self):
+    def cache(self, rdd_partition = None):
         f = open(self.filename)
         self.data = f.readlines()
         f.close()
@@ -89,17 +98,22 @@ class MapPartition(Partition):
         self.parent = parent
         self.func = func
 
-    def get(self):
+    def get(self, rdd_partition = None):
         print "This is the caculation in mapper"
-        if self.is_cached:
-            for element in self.data:
-                yield element
+        if self.rdd_id not in rdd_partition:
+            if self.is_cached:
+                for element in self.data:
+                    yield element
+            else:
+                for element in self.parent.get(rdd_partition):
+                    yield self.func(element)
         else:
-            for element in self.parent.get():
-                yield self.func(element)
+            for element in rdd_partition[self.rdd_id].data:
+                yield element
 
-    def cache(self):
-        self.data = [self.func(element) for element in self.parent.get()]
+
+    def cache(self, rdd_partition = None):
+        self.data = [self.func(element) for element in self.parent.get(rdd_partition)]
         self.is_cached = True
         print self.data
         print "Cache the result for MapPartition"
@@ -113,17 +127,21 @@ class MapValuePartition(Partition):
         self.parent = parent
         self.func = func
 
-    def get(self):
+    def get(self, rdd_partition = None):
         print "This is the caculation in MapValuePartition"
-        if self.is_cached:
-            for element in self.data:
-                yield element
+        if self.rdd_id not in rdd_partition:
+            if self.is_cached:
+                for element in self.data:
+                    yield element
+            else:
+                for key, value in self.parent.get(rdd_partition):
+                    yield (key, self.func(value))
         else:
-            for key, value in self.parent.get():
-                yield (key, self.func(value))
+            for element in rdd_partition[self.rdd_id].data:
+                yield element
 
-    def cache(self):
-        self.data = [(key, self.func(value)) for key, value in self.parent.get()]
+    def cache(self, rdd_partition = None):
+        self.data = [(key, self.func(value)) for key, value in self.parent.get(rdd_partition)]
         self.is_cached = True
         print self.data
         print "Cache the result for MapValuePartition"
@@ -136,19 +154,23 @@ class FlatMapPartition(Partition):
         self.parent = parent
         self.func = func
 
-    def get(self):
+    def get(self, rdd_partition = None):
         print "This is the caculation in flat mapper"
-        if self.is_cached:
-            for element in self.data:
-                yield element
+        if self.rdd_id not in rdd_partition:
+            if self.is_cached:
+                for element in self.data:
+                    yield element
+            else:
+                for element in self.parent.get(rdd_partition):
+                    for i in self.func(element):
+                        yield i
         else:
-            for element in self.parent.get():
-                for i in self.func(element):
-                    yield i
+            for element in rdd_partition[self.rdd_id].data:
+                yield element
 
-    def cache(self):
+    def cache(self, rdd_partition = None):
         self.data = []
-        for element in self.parent.get():
+        for element in self.parent.get(rdd_partition):
             for i in self.func(element):
                 self.data.append(i)
         self.is_cached = True
@@ -164,18 +186,23 @@ class FilterPartition(Partition):
         self.parent = parent
         self.func = func
 
-    def get(self):
+    def get(self, rdd_partition = None):
         print "This is the caculation in filter"
-        if self.is_cached:
-            for element in self.data:
-                yield element
-        else:
-            for element in self.parent.get():
-                if self.func(element):
+        if self.rdd_id not in rdd_partition:
+            if self.is_cached:
+                for element in self.data:
                     yield element
+            else:
+                for element in self.parent.get(rdd_partition):
+                    if self.func(element):
+                        yield element
+        else:
+            for element in rdd_partition[self.rdd_id].data:
+                yield element
 
-    def cache(self):
-        self.data = [element for element in self.parent.get() if self.func(element)]
+
+    def cache(self, rdd_partition = None):
+        self.data = [element for element in self.parent.get(rdd_partition) if self.func(element)]
         self.is_cached = True
         print self.data
         print "Cache the result for FilePartition"
@@ -187,21 +214,25 @@ class GroupByKeyPartition(Partition):
         super(GroupByKeyPartition, self).__init__(rdd_id)
         self.parent = parent
 
-    def get(self):
+    def get(self, rdd_partition = None):
         '''
         This function can be optimized by not creating list directly
         Should do the optimization later
         '''
-        if self.is_cached:
-            for element in self.data:
-                yield element
+        if self.rdd_id not in rdd_partition:
+            if self.is_cached:
+                for element in self.data:
+                    yield element
+            else:
+                self.cache(rdd_partition)
+                for element in self.data:
+                    yield element
         else:
-            self.cache()
-            for element in self.data:
+            for element in rdd_partition[self.rdd_id].data:
                 yield element
 
-    def cache(self):
-        parent_rdd = [element for element in self.parent.get()]
+    def cache(self, rdd_partition = None):
+        parent_rdd = [element for element in self.parent.get(rdd_partition)]
         sorted_rdd = sorted(parent_rdd)
         self.data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
         self.is_cached = True
@@ -216,17 +247,22 @@ class ReduceByKeyPartition(Partition):
         self.parent = parent
         self.func = func
 
-    def get(self):
-        if self.is_cached:
-            for element in self.data:
-                yield element
+    def get(self, rdd_partition= None):
+        if self.rdd_id not in rdd_partition:
+            if self.is_cached:
+                for element in self.data:
+                    yield element
+            else:
+                self.cache(rdd_partition)
+                for element in self.data:
+                    yield element
         else:
-            self.cache()
-            for element in self.data:
-                yield element
+            for element in rdd_partition[self.rdd_id].data:
+                yield element            
 
-    def cache(self):
-        parent_rdd = [element for element in self.parent.get()]
+
+    def cache(self, rdd_partition= None):
+        parent_rdd = [element for element in self.parent.get(rdd_partition)]
         sorted_rdd = sorted(parent_rdd)
         group_data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
         self.data = [(key, reduce(self.func, group)) for key, group in group_data]
@@ -242,29 +278,32 @@ class JoinPartition(Partition):
         self.parent_1 = parent_1
         self.parent_2 = parent_2
 
-    def get(self):
+    def get(self, rdd_partition= None):
         '''
         now we just compare each element with all the elements in the other lists
         we should optimize this function buy sorting the two list first then compare 
         one by one
         '''
-        if self.is_cached:
-            for element in self.data:
-                yield element
+        if self.rdd_id not in rdd_partition:
+            if self.is_cached:
+                for element in self.data:
+                    yield element
+            else:
+                for i in self.parent_1.get(rdd_partition):
+                    for j in self.parent_2.get(rdd_partition):
+                        if i[0] == j[0]:
+                            #print (i[0], (i[1], j[1]))
+                            yield (i[0], (i[1], j[1]))
         else:
-            for i in self.parent_1.get():
-                for j in self.parent_2.get():
-                    if i[0] == j[0]:
-                        print (i[0], (i[1], j[1]))
-                        yield (i[0], (i[1], j[1]))
+            for element in rdd_partition[self.rdd_id].data:
+                yield element
 
-    def cache(self):
+    def cache(self, rdd_partition= None):
         self.data = []
-        for i in self.parent_1.get():
-            for j in self.parent_2.get():
+        for i in self.parent_1.get(rdd_partition):
+            for j in self.parent_2.get(rdd_partition):
                 if i[0] == j[0]:
                     self.data.append((i[0], (i[1], j[1])))
-
         self.is_cached = True
         print self.data
         print "Cache the data for JoinPartition"
@@ -286,21 +325,25 @@ class RePartition(Partition):
     def is_repartition(self):
         return True
 
-    def get(self):
+    def get(self, rdd_partition= None):
         '''
         should implement repartition here
         '''
         print "Call the get in RePartition"
-        if self.is_cached:
-            for element in self.data:
-                yield element
+        if self.rdd_id not in rdd_partition:
+            if self.is_cached:
+                for element in self.data:
+                    yield element
+            else:
+                self.cache(rdd_partition)
+                for element in self.data:
+                    yield element
         else:
-            self.cache()
-            for element in self.data:
-                yield element
+            for element in rdd_partition[self.rdd_id].data:
+                yield element            
 
-    def cache(self):
-        for element in self.parent.get():
+    def cache(self, rdd_partition=None):
+        for element in self.parent.get(rdd_partition):
             if self.func(element) in self.split_result.keys():
                 self.split_result[self.func(element)].append(element)
             else:
@@ -313,8 +356,8 @@ class RePartition(Partition):
 
         print "************* self.worker_conn in RePartition **********"
         print self.worker_conn
-        # for index, conn in self.worker_conn.iteritems():
-        #     conn.collect_data(self.split_result[index])
+        for index, conn in self.worker_conn.iteritems():
+            conn.collect_data(self.split_result[index])
 
         self.is_cached = True
         print "Cached the data for the RePartition:"
