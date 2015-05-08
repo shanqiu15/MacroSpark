@@ -47,25 +47,26 @@ class Worker(object):
         j.cache()
         return str(lineage)
 
-    def setup_repartition(self, repartition_rdd):
-        self.repartition_rdd = repartition_rdd
-
-    def setup_partition_con(self, rdd_id):
-        self.rdd_partition[rdd_id].setup_connections(self.worker_conn, self.driver_conn)
+    # def setup_repartition(self, repartition_rdd):
+    #     self.repartition_rdd = repartition_rdd
 
     def run(self, objstr):
         input = StringIO.StringIO(objstr)
         unpickler = pickle.Unpickler(input)
         f = unpickler.load()
 
+        #setup the connections for repartition rdd
+        f.setup_connections(self.worker_conn, self.driver_conn, self.index)
+
+        f.set_start_stage(self.rdd_partition)
         #record this rdd partition and execute this clousure
         self.rdd_partition[f.rdd_id] = f
 
-        #setup the connections for repartition rdd
-        if f.rdd_id in self.repartition_rdd:
-            f.setup_connections(self.worker_conn, self.driver_conn)
-
         f.cache()
+        print "This is the caculation for ", f.rdd_id
+        print f.data
+
+        return True 
 
     def collect(self, rdd_id):
         return self.rdd_partition[rdd_id].data

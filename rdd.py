@@ -97,6 +97,16 @@ class ReduceByKey(RDD):
     def need_repartition(self):
         return True
 
+class GroupByKey(RDD):
+    def __init__(self, parent):
+        self.parent = RePartition(parent)
+        super(GroupByKey, self).__init__()
+
+        #Store all the operations until now (a generator list)
+        self.set_lineage()
+
+    def need_repartition(self):
+        return True    
 
 class MapValue(RDD):
     def __init__(self, parent, func):
@@ -159,6 +169,5 @@ if __name__ == "__main__":
     for op in j.get_lineage():
         print op.id
         print op.__class__.__name__
-    # i = r.get_lineage().pop()
-    # print i
+
 

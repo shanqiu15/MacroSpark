@@ -11,6 +11,25 @@ class Partition(object):
     def set_partition_index(self, index):
         self.partition_index = index
 
+    def set_start_stage(self,rdd_partition):
+        '''
+        This method should be overwrite for join and FilePartition
+        Because join has two parent and FilePartition has no parent
+        '''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     def collect(self):
         elements = []
         for element in self.get():
@@ -21,12 +40,20 @@ class Partition(object):
         for elem in self.get():
             print elem
 
+    def is_repartition(self):
+        return False
+
     def get_data(self):
         if self.is_cached:
             return self.data
         else:
             self.cache()
             return self.data
+
+    def setup_connections(self, worker_conn, driver_conn, index):        
+        self.driver_conn = driver_conn
+        self.worker_conn = worker_conn
+        self.partition_index = index
 
 
 class FilePartition(Partition):
@@ -35,9 +62,9 @@ class FilePartition(Partition):
         super(FilePartition, self).__init__(rdd_id)
         self.filename = filename
         self.partition_num = worker_num
+        self.parent = None
 
     def get(self):
-        print "This is the get in TextFile"
         if not self.data:
             f = open(self.filename)
             self.data = f.readlines()
@@ -72,7 +99,7 @@ class MapPartition(Partition):
                 yield self.func(element)
 
     def cache(self):
-        self.data = [element for element in self.parent.get()]
+        self.data = [self.func(element) for element in self.parent.get()]
         self.is_cached = True
         print self.data
         print "Cache the result for MapPartition"
@@ -110,7 +137,7 @@ class FlatMapPartition(Partition):
         self.func = func
 
     def get(self):
-        print "This is the caculation in mapper"
+        print "This is the caculation in flat mapper"
         if self.is_cached:
             for element in self.data:
                 yield element
@@ -123,7 +150,7 @@ class FlatMapPartition(Partition):
         self.data = []
         for element in self.parent.get():
             for i in self.func(element):
-                self.data.append[i]
+                self.data.append(i)
         self.is_cached = True
         print self.data
         print "Cache the result for FlatMapPartition"
@@ -156,7 +183,7 @@ class FilterPartition(Partition):
 
 
 class GroupByKeyPartition(Partition):
-    def __init__(self,  rdd_id, parent):
+    def __init__(self, rdd_id, parent):
         super(GroupByKeyPartition, self).__init__(rdd_id)
         self.parent = parent
 
@@ -169,10 +196,8 @@ class GroupByKeyPartition(Partition):
             for element in self.data:
                 yield element
         else:
-            parent_rdd = [element for element in self.parent.get()]
-            sorted_rdd = sorted(parent_rdd)
-            group_rdd = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
-            for element in group_rdd:
+            self.cache()
+            for element in self.data:
                 yield element
 
     def cache(self):
@@ -196,13 +221,15 @@ class ReduceByKeyPartition(Partition):
             for element in self.data:
                 yield element
         else:
-            grouper =  GroupByKeyPartition(-1 , parent)
-            for key, group in grouper.get():
-                yield (key, reduce(self.func, group))
+            self.cache()
+            for element in self.data:
+                yield element
 
     def cache(self):
-        grouper =  GroupByKeyPartition(-1 , parent) 
-        self.data = [(key, reduce(self.func, group)) for key, group in grouper.get()]
+        parent_rdd = [element for element in self.parent.get()]
+        sorted_rdd = sorted(parent_rdd)
+        group_data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
+        self.data = [(key, reduce(self.func, group)) for key, group in group_data]
         self.is_cached = True
         print self.data
         print "Cache the result for ReduceByKeyPartition"
@@ -243,32 +270,34 @@ class JoinPartition(Partition):
         print "Cache the data for JoinPartition"
         #return self
 
-
-
 #RePartition rdd_id = parent.id + 1 
 class RePartition(Partition):
-    def __init__(self, rdd_id, parent,func = None):
+    def __init__(self, rdd_id, parent, worker_num):
         super(RePartition, self).__init__(rdd_id)
         self.parent = parent
-        self.func = func
+
+        #default hash
+        self.func = lambda x:(hash(x[0]) % worker_num)
         self.split_result = {}
         self.worker_conn = None
         self.driver = None
+        self.partition_index = 0
 
-
-    def setup_connections(worker_conn, driver_conn):        
-        self.driver_conn = driver_conn
-        self.worker_conn = worker_conn
+    def is_repartition(self):
+        return True
 
     def get(self):
         '''
         should implement repartition here
         '''
+        print "Call the get in RePartition"
         if self.is_cached:
             for element in self.data:
                 yield element
         else:
-            raise Exception("no data available")
+            self.cache()
+            for element in self.data:
+                yield element
 
     def cache(self):
         for element in self.parent.get():
@@ -279,29 +308,43 @@ class RePartition(Partition):
 
         #Initiallize self.data
         self.data = self.data + self.split_result[self.partition_index]
+        print "This is the local assigned data:"
+        print self.data
 
-        for index, conn in self.worker_conn:
-            conn.collect_data(self.split_result[index])
+        print "************* self.worker_conn in RePartition **********"
+        print self.worker_conn
+        # for index, conn in self.worker_conn.iteritems():
+        #     conn.collect_data(self.split_result[index])
 
         self.is_cached = True
-        self.driver_conn.repartition_acc()
+        print "Cached the data for the RePartition:"
         print self.data
-        print "Cache the data for the RePartition"
-        return self.partition_index
+
 
     def collect_data(self, split):
         self.data = self.data + split
 
 
-
-
 if __name__ == "__main__":
 
-    r = FilePartition(1, 1, 'myfile')
-    m = MapPartition(2, 1, r, lambda s: s.split())
-    f = FilterPartition(3, 1, m, lambda a: int(a[1]) > 2)
+    r = FilePartition(1, 'myfile', 1)
+    f = FlatMapPartition(2, r, lambda s: s.split())
+    m = MapPartition(3, f, lambda s:(s, 1))
+    p = RePartition(4, m, 2)
+    p.func = lambda x:(hash(x[0]) % 2)
+    p.partition_index = 1
+    p.cache()
+    r = ReduceByKeyPartition(5, p, lambda x, y: x + y)
 
-    z = FilePartition(4 , 1, 'myfile')
-    q = MapPartition(5, 1, r, lambda s: s.split())
-    j = JoinPartition(6, 1, m, q)
-    print j.collect()
+
+    r.cache()
+    print r.data
+
+    # r = FilePartition(1, 1, 'myfile')
+    # m = MapPartition(2, 1, r, lambda s: s.split())
+    # f = FilterPartition(3, 1, m, lambda a: int(a[1]) > 2)
+
+    # z = FilePartition(4 , 1, 'myfile')
+    # q = MapPartition(5, 1, r, lambda s: s.split())
+    # j = JoinPartition(6, 1, m, q)
+    # print j.collect()
