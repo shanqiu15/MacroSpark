@@ -327,7 +327,9 @@ class RePartition(Partition):
 
     def get(self, rdd_partition= None):
         '''
-        should implement repartition here
+        Because zerorpc will convert tuples to list, we have to convert
+        the element back to tuples that's why we do 
+        yield (element[0], element[1])
         '''
         print "Call the get in RePartition"
         if self.rdd_id not in rdd_partition:
@@ -340,7 +342,8 @@ class RePartition(Partition):
                     yield element
         else:
             for element in rdd_partition[self.rdd_id].data:
-                yield element            
+                yield (element[0], element[1])
+
 
     def cache(self, rdd_partition=None):
         for element in self.parent.get(rdd_partition):
