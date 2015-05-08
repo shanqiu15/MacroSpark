@@ -357,7 +357,7 @@ class RePartition(Partition):
         print "************* self.worker_conn in RePartition **********"
         print self.worker_conn
         for index, conn in self.worker_conn.iteritems():
-            conn.collect_data(self.split_result[index])
+            conn.collect_data(self.rdd_id, self.split_result[index])
 
         self.is_cached = True
         print "Cached the data for the RePartition:"

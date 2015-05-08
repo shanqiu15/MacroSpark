@@ -45,7 +45,7 @@ class Worker(object):
         unpickler = pickle.Unpickler(client_input)
         j = unpickler.load()
         j.cache()
-        return str(lineage)
+        return str(j.lineage)
 
     # def setup_repartition(self, repartition_rdd):
     #     self.repartition_rdd = repartition_rdd
@@ -58,10 +58,10 @@ class Worker(object):
         #setup the connections for repartition rdd
         f.setup_connections(self.worker_conn, self.driver_conn, self.index)
 
-        f.cache(self.rdd_partition)
-        
-        #record this rdd partition and execute this clousure
+        #record this rdd partition and execute this clousure 
         self.rdd_partition[f.rdd_id] = f
+        f.cache(self.rdd_partition)
+
         print "This is the caculation for ", f.rdd_id
         print f.data
 
@@ -72,6 +72,9 @@ class Worker(object):
 
     def getPartition(self, rdd_id):
         return self.rdd_partition[rdd_id]
+
+    def collect_data(self, rdd_id, split):
+        self.rdd_partition[rdd_id].data = self.rdd_partition[rdd_id].data + split
 
     def call_hello(self):
         print "Connected Successfully"
