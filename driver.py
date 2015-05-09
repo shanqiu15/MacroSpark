@@ -237,7 +237,7 @@ class SparkContext():
 
 if __name__ == "__main__":
 
-    r = TextFile('myfile')
+    r = TextFile('testFile')
     m = FlatMap(r, lambda s: s.split())
     f = Map(m, lambda a: (a, 1))
     #mv = MapValue(f, lambda s:s)
@@ -248,7 +248,8 @@ if __name__ == "__main__":
 
 
     #Setup the driver and worker
-    worker_list = ["127.0.0.1:9001", "127.0.0.1:9002"]
+    # worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003", "127.0.0.1:9004"]
+    worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003"]
     sc = SparkContext(worker_list, sys.argv[1])
 
     threads = [gevent.spawn(conn.setup_worker_con, worker_list, "127.0.0.1:4242") for conn in sc.connections]

@@ -325,7 +325,7 @@ class RePartition(Partition):
     def is_repartition(self):
         return True
 
-    def get(self, rdd_partition= None):
+    def get(self, rdd_partition = None):
         '''
         Because zerorpc will convert tuples to list, we have to convert
         the element back to tuples that's why we do 
