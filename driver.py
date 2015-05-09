@@ -48,12 +48,6 @@ class SparkContext():
                          "RePartition" : self.visitRepartition,
                         }
 
-    def _reference_counter_acc(parent_id):
-        if parent_id in self.reference_counter.keys():
-            self.reference_counter[parent_id] = self.reference_counter[parent_id] + 1
-        else:
-            self.reference_counter[parent_id] = 1
-
     def visit_lineage(self, rdd):
 
         #initialize repartition list and the stage list
@@ -81,34 +75,6 @@ class SparkContext():
         j = unpickler.load()
         lineage = self.visit_lineage(j)
         return str(lineage)
-
-
-    def test_execute(self):
-        '''
-        ***************************
-        This is a function should only be used for testing
-        Should use Gevent
-        ***************************
-        '''
-        #?????? stage.cache() #call cache in each stage to triger the execution
-        i = 0
-        for stage in self.stages:
-            for conn in self.connections:
-                print "this is the execution for worker", i, "\n"
-                #############
-                output = StringIO.StringIO()
-                pickler = cloudpickle.CloudPickler(output)
-                pickler.dump(stage)
-                objstr = output.getvalue()
-                conn.run(objstr)
-
-                #############
-                if stage.rdd_id in self.repartition_stages:
-                    elf.is_reparted[stage.id] = False
-                    while(not self.is_reparted[stage.id]):
-                        sleep()
-                #############
-                i = i + 1
 
     def execute(self, stage, conn):
         # self.evt.wait()
@@ -219,16 +185,6 @@ class SparkContext():
         self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], len(self.workers))
         self.stages.append(self.operations[repartition.id])
 
-    def repartition_acc(self, rdd_id):
-        self.repartition_counter = self.repartition_counter + 1
-        if self.repartition_counter == len(self.workers):
-            '''repartitioned successfully'''
-            self.is_reparted[rdd_id] = True
-            self.repartition_counter = 0
-        else:
-            '''not finished yet'''
-            self.is_reparted[rdd_id] = False
-
     def collect(self, rdd):
         pass
 
@@ -241,15 +197,15 @@ if __name__ == "__main__":
     m = FlatMap(r, lambda s: s.split())
     f = Map(m, lambda a: (a, 1))
     #mv = MapValue(f, lambda s:s)
-    r = ReduceByKey(f, lambda x, y: x + y)
+    #r = ReduceByKey(f, lambda x, y: x + y)
     #z = Filter(m, lambda a: int(a[1]) < 2)
-    # j = Join(z, r)
+    j = Join(f, f)
 
 
 
     #Setup the driver and worker
     # worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003", "127.0.0.1:9004"]
-    worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003"]
+    worker_list = ["127.0.0.1:9001", "127.0.0.1:9002"]
     sc = SparkContext(worker_list, sys.argv[1])
 
     threads = [gevent.spawn(conn.setup_worker_con, worker_list, "127.0.0.1:4242") for conn in sc.connections]
@@ -264,7 +220,7 @@ if __name__ == "__main__":
 
 
     #the process of caculate RDD "z"
-    sc.visit_lineage(r)
+    sc.visit_lineage(j)
     # threads = [gevent.spawn(conn.setup_conn, sc.repartition_stages) for conn in sc.connections]
     # gevent.joinall(threads)
     #sc.test_execute()

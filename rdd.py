@@ -127,7 +127,6 @@ class Join(RDD):
         self.parent.append(RePartition(parent_0))
         self.parent.append(RePartition(parent_1))
         super(Join, self).__init__()
-        # self.parent = [parent_0, parent_1]
         #Store all the operations until now (a generator list)
         self.set_lineage()
 
