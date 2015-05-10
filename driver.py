@@ -26,15 +26,7 @@ class SparkContext():
 
         #key: rdd_id, value: partition operation object
         self.operations = {}
-
         self.stages = []
-
-        #The cached intermediate rdd data {rdd_id: data}
-        self.caches = {}
-
-        #record how many rdds depend on this rdd, when one rdd's reference_counter 
-        #is zero the cached data in "caches" can be garbage collected {rdd_id: counter}
-        self.reference_counter = {}
 
         # map the inputs to the function blocks
         self.options = { "TextFile"    : self.visitTextFile,
@@ -84,104 +76,91 @@ class SparkContext():
         objstr = output.getvalue()
         return conn.run(objstr)
 
-        # #process for repartition#
-        # if stage.rdd_id in self.repartition_stages:
-        #     self.is_reparted[stage.id] = False
-        #     while(not self.is_reparted[stage.id]):
-        #         sleep()
-            
+    # def fail_execute(self, stage, conn):
+    #     # self.evt.wait()
+    #     output = StringIO.StringIO()
+    #     pickler = cloudpickle.CloudPickler(output)
+    #     pickler.dump(stage)
+    #     objstr = output.getvalue()
+    #     return conn.fail_run(objstr)
 
-    def execution_acc(self, rdd_id):
+    def worker_setup(self):
+        '''
+        reset up worker connection and other configuration after worker failure
+        '''
         pass
 
-    # def collect(rdd):
-    #     '''
-    #     An rdd object which need to be collected
-    #     '''
-    #     self.operations[rdd.id]
+    def job_schedule(self):
 
-
-            
+        for stage in sc.stages:
+            threads = [gevent.spawn(sc.execute, stage, conn) for conn in sc.connections]
+            gevent.joinall(threads)
 
     # define the function blocks
     def visitTextFile(self, textfile):
-        print "visit TestFile %d", textfile.id
-        print textfile, "\n"
-        print textfile.__class__.__name__
-        print textfile.filePath
+        # print "visit TestFile %d", textfile.id
+        # print textfile, "\n"
+        # print textfile.__class__.__name__
+        # print textfile.filePath
 
         self.operations[textfile.id] = FilePartition(textfile.id, textfile.filePath, len(self.workers))
-        # for i in range(len(worker_list)):
-        #     r[i] = FilePartition(textfile, textfile.id, i)
-
 
     def visitMap(self, mapper):
-        print "visit Map %d", mapper.id
-        print mapper, "\n"
+        # print "visit Map %d", mapper.id
+        # print mapper, "\n"
+
         parent = mapper.get_parent()
-        # self._reference_counter_acc(parent.id)
         self.operations[mapper.id] = MapPartition(mapper.id, self.operations[parent.id], mapper.func)
 
-        # return MapPartition(rdd_id, parent, func)
-        # for i in range(len(worker_list)):
-        #     m[i] = 
-
     def visitFilter(self, filt):
-        print "visit Filter %d", filt.id
-        print filt, "\n"
+        # print "visit Filter %d", filt.id
+        # print filt, "\n"
+
         parent = filt.get_parent()
-        # self._reference_counter_acc(parent.id)
         self.operations[filt.id] = FilterPartition(filt.id, self.operations[parent.id], filt.func)
 
     def visitFlatmap(self, flatMap):
-        print "visit FlatMap %d", flatMap.id
-        print flatMap, "\n"
+        # print "visit FlatMap %d", flatMap.id
+        # print flatMap, "\n"
+
         parent = flatMap.get_parent()
-        # self._reference_counter_acc(parent.id)
         self.operations[flatMap.id] = FlatMapPartition(flatMap.id, self.operations[parent.id], flatMap.func)
 
     def visitGroupByKey(self, groupByKey):
-        print "visit GroupByKey %d", groupByKey.id
-        print groupByKey, "\n"
+        # print "visit GroupByKey %d", groupByKey.id
+        # print groupByKey, "\n"
 
         parent = groupByKey.get_parent()
         self.operations[groupByKey.id] = GroupByKeyPartition(groupByKey.id, self.operations[parent.id])
 
 
     def visitReduceByKey(self, reduceByKey):
-        print "visit ReduceByKey %d", reduceByKey.id
-        print reduceByKey, "\n"
+        # print "visit ReduceByKey %d", reduceByKey.id
+        # print reduceByKey, "\n"
 
         parent = reduceByKey.get_parent()
-
-        #self.operations[parent.id].cache()
-        #self._reference_counter_acc(parent.id)
-
         self.operations[reduceByKey.id] = ReduceByKeyPartition(reduceByKey.id, self.operations[parent.id], reduceByKey.func)
 
     def visitMapValue(self, mapValue):
-        print "visit MapValue %d", mapValue.id
-        print mapValue, "\n"
+        # print "visit MapValue %d", mapValue.id
+        # print mapValue, "\n"
+
         parent = mapValue.get_parent()
-        # self._reference_counter_acc(parent.id)
         self.operations[mapValue.id] = MapValuePartition(mapValue.id, self.operations[parent.id], mapValue.func)
 
     def visitJoin(self, join):
-        print "visit join %d",join.id
-        print join,"\n"
-        parent = join.get_parent()
+        # print "visit join %d",join.id
+        # print join,"\n"
 
-        # self._reference_counter_acc(parent[0].id)
-        # self._reference_counter_acc(parent[1].id) 
+        parent = join.get_parent()
         self.operations[join.id] = JoinPartition(join.id, self.operations[parent[0].id],self.operations[parent[1].id])
 
     def visitRepartition(self, repartition):
-        print "visit repartition %d",repartition.id
-        print repartition, "\n"
+        # print "visit repartition %d",repartition.id
+        # print repartition, "\n"
+
         parent = repartition.get_parent()
-
         self.stages.append(self.operations[parent.id])
-
         self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], len(self.workers))
         self.stages.append(self.operations[repartition.id])
 
@@ -221,12 +200,14 @@ if __name__ == "__main__":
 
     #the process of caculate RDD "z"
     sc.visit_lineage(j)
+    sc.job_schedule()
     # threads = [gevent.spawn(conn.setup_conn, sc.repartition_stages) for conn in sc.connections]
     # gevent.joinall(threads)
     #sc.test_execute()
-    for stage in sc.stages:
-        threads = [gevent.spawn(sc.execute, stage, conn) for conn in sc.connections]
-        gevent.joinall(threads)
+    # for stage in sc.stages:
+    #     threads = [gevent.spawn(sc.execute, stage, conn) for conn in sc.connections]
+    #     gevent.joinall(threads)
+
         # # self.evt.set()
         # if statge.is_repartition():
         #     # self.evt.clear()
