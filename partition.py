@@ -7,43 +7,17 @@ class Partition(object):
         self.partition_index = partition_index
         self.data = []
         self.is_cached = False
+        self.collect = False
+        self.count = False
 
     def set_partition_index(self, index):
         self.partition_index = index
 
-    # def set_start_stage(self,rdd_partition):
-    #     '''
-    #     This method should be overwrite for join and FilePartition
-    #     Because join has two parent and FilePartition has no parent
-    #     '''
-    #     if self.parent is None:
-    #         return
-    #     else:
-    #         while True:
-    #             parent = self.parent
-    #             if parent.rdd_id in rdd_partition.keys():
-    #                 self.parent = rdd_partition[parent.rdd_id]
-    #             :
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    def collect(self):
-        elements = []
-        for element in self.get():
-            elements.append(element)
-        return elements
+    # def collect(self):
+    #     elements = []
+    #     for element in self.get():
+    #         elements.append(element)
+    #     return elements
 
     def show(self):
         for elem in self.get():
@@ -115,8 +89,12 @@ class MapPartition(Partition):
     def cache(self, rdd_partition = None):
         self.data = [self.func(element) for element in self.parent.get(rdd_partition)]
         self.is_cached = True
-        print self.data
-        print "Cache the result for MapPartition"
+        if self.collect:
+            self.driver_conn.collect(self.data)
+        if self.count:
+            self.driver_conn.count_acc([len(self.data)])
+        # print self.data
+        # print "Cache the result for MapPartition"
         #return self
 
 
@@ -143,8 +121,13 @@ class MapValuePartition(Partition):
     def cache(self, rdd_partition = None):
         self.data = [(key, self.func(value)) for key, value in self.parent.get(rdd_partition)]
         self.is_cached = True
-        print self.data
-        print "Cache the result for MapValuePartition"
+        if self.collect:
+            self.driver_conn.collect(self.data)
+        if self.count:
+            self.driver_conn.count_acc([len(self.data)])
+
+        # print self.data
+        # print "Cache the result for MapValuePartition"
         #return self
 
 
@@ -174,8 +157,13 @@ class FlatMapPartition(Partition):
             for i in self.func(element):
                 self.data.append(i)
         self.is_cached = True
-        print self.data
-        print "Cache the result for FlatMapPartition"
+        if self.collect:
+            self.driver_conn.collect(self.data)
+        if self.count:
+            self.driver_conn.count_acc([len(self.data)])
+
+        # print self.data
+        # print "Cache the result for FlatMapPartition"
         #return self
 
 
@@ -204,8 +192,13 @@ class FilterPartition(Partition):
     def cache(self, rdd_partition = None):
         self.data = [element for element in self.parent.get(rdd_partition) if self.func(element)]
         self.is_cached = True
-        print self.data
-        print "Cache the result for FilePartition"
+        if self.collect:
+            self.driver_conn.collect(self.data)
+        if self.count:
+            self.driver_conn.count_acc([len(self.data)])
+
+        # print self.data
+        # print "Cache the result for FilePartition"
         #return self
 
 
@@ -236,8 +229,13 @@ class GroupByKeyPartition(Partition):
         sorted_rdd = sorted(parent_rdd)
         self.data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
         self.is_cached = True
-        print self.data
-        print "Cache the result for GroupByKeyPartition"
+        if self.collect:
+            self.driver_conn.collect(self.data)
+        if self.count:
+            self.driver_conn.count_acc([len(self.data)])
+
+        # print self.data
+        # print "Cache the result for GroupByKeyPartition"
         #return self
 
 
@@ -267,8 +265,13 @@ class ReduceByKeyPartition(Partition):
         group_data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
         self.data = [(key, reduce(self.func, group)) for key, group in group_data]
         self.is_cached = True
-        print self.data
-        print "Cache the result for ReduceByKeyPartition"
+        if self.collect:
+            self.driver_conn.collect(self.data)
+        if self.count:
+            self.driver_conn.count_acc([len(self.data)])
+
+        # print self.data
+        # print "Cache the result for ReduceByKeyPartition"
         #return self
 
 
@@ -305,8 +308,13 @@ class JoinPartition(Partition):
                 if i[0] == j[0]:
                     self.data.append((i[0], (i[1], j[1])))
         self.is_cached = True
-        print self.data
-        print "Cache the data for JoinPartition"
+        if self.collect:
+            self.driver_conn.collect(self.data)
+        if self.count:
+            self.driver_conn.count_acc([len(self.data)])
+
+        # print self.data
+        # print "Cache the data for JoinPartition"
         #return self
 
 #RePartition rdd_id = parent.id + 1 
@@ -354,17 +362,22 @@ class RePartition(Partition):
 
         #Initiallize self.data
         self.data = self.data + self.split_result[self.partition_index]
-        print "This is the local assigned data:"
-        print self.data
+        # print "This is the local assigned data:"
+        # print self.data
 
-        print "************* self.worker_conn in RePartition **********"
-        print self.worker_conn
+        # print "************* self.worker_conn in RePartition **********"
+        # print self.worker_conn
         for index, conn in self.worker_conn.iteritems():
             conn.collect_data(self.rdd_id, self.split_result[index])
 
         self.is_cached = True
-        print "Cached the data for the RePartition:"
-        print self.data
+        if self.collect:
+            self.driver_conn.collect(self.data)
+        if self.count:
+            self.driver_conn.count_acc([len(self.data)])
+
+        # print "Cached the data for the RePartition:"
+        # print self.data
 
 
     def collect_data(self, split):

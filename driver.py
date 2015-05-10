@@ -57,7 +57,7 @@ class SparkContext():
         print "This is all the stages: ", self.stages
         return self.operations
 
-    def lineage_test(self, objstr):
+    def execute_lineage(self, objstr):
         '''
         Send the rdd object from the client and generate the lineage back
         '''
@@ -68,6 +68,9 @@ class SparkContext():
         lineage = self.visit_lineage(j)
         return str(lineage)
 
+
+
+
     def execute(self, stage, conn):
         # self.evt.wait()
         output = StringIO.StringIO()
@@ -76,13 +79,26 @@ class SparkContext():
         objstr = output.getvalue()
         return conn.run(objstr)
 
-    # def fail_execute(self, stage, conn):
-    #     # self.evt.wait()
-    #     output = StringIO.StringIO()
-    #     pickler = cloudpickle.CloudPickler(output)
-    #     pickler.dump(stage)
-    #     objstr = output.getvalue()
-    #     return conn.fail_run(objstr)
+    def job_schedule(self):
+        '''
+        Execute the stage one by one
+        Output the RDD if collect was true
+        '''
+        for stage in self.stages:
+            self.rdd_data = [] #record the rdd collect data
+            self.count = [] # a list record the count for each partition
+            threads = [gevent.spawn(self.execute, stage, conn) for conn in self.connections]
+            gevent.joinall(threads)
+            if self.rdd_data:
+                print self.rdd_data
+            if stage.count:
+                print sum(self.count)
+
+    def collect(self, data):
+        self.rdd_data = self.rdd_data + data
+
+    def count_acc(self, count):
+        self.count = self.count + count
 
     def worker_setup(self):
         '''
@@ -90,11 +106,12 @@ class SparkContext():
         '''
         pass
 
-    def job_schedule(self):
+    def _set_collect_count(self, rdd):
+        if rdd.collect:
+            self.operations[rdd.id].collect = True
+        if rdd.count:
+            self.operations[rdd.id].count = True
 
-        for stage in sc.stages:
-            threads = [gevent.spawn(sc.execute, stage, conn) for conn in sc.connections]
-            gevent.joinall(threads)
 
     # define the function blocks
     def visitTextFile(self, textfile):
@@ -104,6 +121,8 @@ class SparkContext():
         # print textfile.filePath
 
         self.operations[textfile.id] = FilePartition(textfile.id, textfile.filePath, len(self.workers))
+        self._set_collect_count(textfile)
+
 
     def visitMap(self, mapper):
         # print "visit Map %d", mapper.id
@@ -111,6 +130,8 @@ class SparkContext():
 
         parent = mapper.get_parent()
         self.operations[mapper.id] = MapPartition(mapper.id, self.operations[parent.id], mapper.func)
+        self._set_collect_count(mapper)
+
 
     def visitFilter(self, filt):
         # print "visit Filter %d", filt.id
@@ -118,6 +139,8 @@ class SparkContext():
 
         parent = filt.get_parent()
         self.operations[filt.id] = FilterPartition(filt.id, self.operations[parent.id], filt.func)
+        self._set_collect_count(filt)
+
 
     def visitFlatmap(self, flatMap):
         # print "visit FlatMap %d", flatMap.id
@@ -125,6 +148,8 @@ class SparkContext():
 
         parent = flatMap.get_parent()
         self.operations[flatMap.id] = FlatMapPartition(flatMap.id, self.operations[parent.id], flatMap.func)
+        self._set_collect_count(flatMap)
+
 
     def visitGroupByKey(self, groupByKey):
         # print "visit GroupByKey %d", groupByKey.id
@@ -132,6 +157,7 @@ class SparkContext():
 
         parent = groupByKey.get_parent()
         self.operations[groupByKey.id] = GroupByKeyPartition(groupByKey.id, self.operations[parent.id])
+        self._set_collect_count(groupByKey)
 
 
     def visitReduceByKey(self, reduceByKey):
@@ -140,6 +166,8 @@ class SparkContext():
 
         parent = reduceByKey.get_parent()
         self.operations[reduceByKey.id] = ReduceByKeyPartition(reduceByKey.id, self.operations[parent.id], reduceByKey.func)
+        self._set_collect_count(reduceByKey)
+
 
     def visitMapValue(self, mapValue):
         # print "visit MapValue %d", mapValue.id
@@ -147,6 +175,8 @@ class SparkContext():
 
         parent = mapValue.get_parent()
         self.operations[mapValue.id] = MapValuePartition(mapValue.id, self.operations[parent.id], mapValue.func)
+        self._set_collect_count(mapValue)
+
 
     def visitJoin(self, join):
         # print "visit join %d",join.id
@@ -154,6 +184,8 @@ class SparkContext():
 
         parent = join.get_parent()
         self.operations[join.id] = JoinPartition(join.id, self.operations[parent[0].id],self.operations[parent[1].id])
+        self._set_collect_count(join)
+
 
     def visitRepartition(self, repartition):
         # print "visit repartition %d",repartition.id
@@ -163,9 +195,7 @@ class SparkContext():
         self.stages.append(self.operations[parent.id])
         self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], len(self.workers))
         self.stages.append(self.operations[repartition.id])
-
-    def collect(self, rdd):
-        pass
+        self._set_collect_count(repartition)
 
     def count(self, rdd):
         pass
@@ -179,6 +209,8 @@ if __name__ == "__main__":
     #r = ReduceByKey(f, lambda x, y: x + y)
     #z = Filter(m, lambda a: int(a[1]) < 2)
     j = Join(f, f)
+    # j.rdd_collect()
+    # j.rdd_count()
 
 
 
@@ -191,28 +223,10 @@ if __name__ == "__main__":
     gevent.joinall(threads)
 
 
-
-    # for conn in sc.connections:
-    #     print conn.call_hello()
-    #     conn.setup_worker_con(worker_list, "127.0.0.1:4242")
-    #     conn.setup_repartition(sc.repartition_stages)
-
-
     #the process of caculate RDD "z"
     sc.visit_lineage(j)
     sc.job_schedule()
-    # threads = [gevent.spawn(conn.setup_conn, sc.repartition_stages) for conn in sc.connections]
-    # gevent.joinall(threads)
-    #sc.test_execute()
-    # for stage in sc.stages:
-    #     threads = [gevent.spawn(sc.execute, stage, conn) for conn in sc.connections]
-    #     gevent.joinall(threads)
 
-        # # self.evt.set()
-        # if statge.is_repartition():
-        #     # self.evt.clear()
-        #     threads = [gevent.spawn(sc.execute, stage, conn) for conn in sc.connections]
-        #     gevent.joinall(threads)
 
 
 

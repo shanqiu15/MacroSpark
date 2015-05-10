@@ -10,6 +10,8 @@ class RDD(object):
         global RDD_ID
         RDD_ID = RDD_ID + 2
         self.id = RDD_ID
+        self.collect = False
+        self.count = False
 
     def get_parent(self):
         return self.parent
@@ -24,6 +26,12 @@ class RDD(object):
     def get_lineage(self):
         self.set_lineage()
         return self.lineage
+
+    def rdd_collect(self):
+        self.collect = True
+
+    def rdd_count(self):
+        self.count = True
 
 
 class TextFile(RDD):
@@ -151,6 +159,17 @@ class RePartition(RDD):
 
     def need_repartition(self):
         return False
+
+# class Collect(RDD):
+#     def __init__(self, parent):
+#         super(Collect, self).__init__()
+#         self.parent = parent
+#
+#         #Store all the operations until now (a generator list)
+#         self.set_lineage()
+#
+#     def need_repartition(self):
+#         return False
 
 
 

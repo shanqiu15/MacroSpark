@@ -15,6 +15,7 @@ mv = MapValue(f, lambda s:s)
 r = ReduceByKey(mv, lambda x, y: x + y)
 z = Filter(m, lambda a: int(a[1]) < 2)
 j = Join(z, r)
+j.collect()#set the collect to be true then we will collect all the data to driver
 
 output = StringIO.StringIO()
 pickler = cloudpickle.CloudPickler(output)
@@ -23,6 +24,6 @@ objstr = output.getvalue()
 
 c = zerorpc.Client()
 c.connect("tcp://127.0.0.1:4242")
-a = c.lineage_test(objstr)
+a = c.execute_lineage(objstr)
 print a
 
