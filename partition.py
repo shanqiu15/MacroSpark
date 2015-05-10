@@ -1,4 +1,5 @@
 from itertools import groupby
+import os
 
 class Partition(object):
 
@@ -67,28 +68,76 @@ class Partition(object):
 
 class FilePartition(Partition):
 
-    def __init__(self, rdd_id, filename, worker_num):
+    def __init__(self, rdd_id, input_path, worker_num):
         super(FilePartition, self).__init__(rdd_id)
-        self.filename = filename
+        self.inputPath = input_path
         self.partition_num = worker_num
         self.parent = None
+        self.split_result = []
 
     def get(self, rdd_partition = None):
         if not self.data:
-            f = open(self.filename)
-            self.data = f.readlines()
-            f.close()
+            split_result = self.split()
+            file_reader = open(split_result[0], "r")
+            file_reader.seek(split_result[1])
+            self.data = file_reader.read(split_result[2] - split_result[1])
+            file_reader.close()
     
         for line in self.data:
             yield line
 
     def cache(self, rdd_partition = None):
-        f = open(self.filename)
-        self.data = f.readlines()
-        f.close()
+        split_result = self.split()
+        file_reader = open(split_result[0], "r")
+        file_reader.seek(split_result[1])
+        self.data = file_reader.read(split_result[2] - split_result[1])
+        file_reader.close()
         self.is_cached = True
         print self.data
-        print "Cached the result for FilePartition" 
+        print "Cached the result for FilePartition"
+
+    def split(self):
+        """
+        Split files into splits, each split has multiple chunks.
+        :return: An array of split information, i.e., (file, start, end)
+        """
+        overall_chunks = []
+        for single_file in self.get_all_files():
+            file_chunks = self.split_single_file(single_file)
+            overall_chunks.extend(file_chunks)
+        return overall_chunks
+
+    def get_all_files(self):
+        if os.path.isdir(self.input_path):
+            return os.listdir(self.input_path)
+        else:
+            return [self.input_path]
+
+    def split_single_file(self, single_file):
+        """
+        Split a single file into parts in chunk size
+        :return: An array of split position of the chunks, i.e., (file, start, end).
+        """
+        file_size = os.path.getsize(file)
+        chunk_size = file_size / self.partition_num
+        file_handler = open(single_file, "r")
+        chunks = []
+        pos = 0
+        while pos < file_size:
+            next_pos = min(pos + chunk_size, file_size)
+            if pos == 0:
+                chunks.append((file, pos, self.find_next_newline(file_handler, next_pos)))
+            else:
+                chunks.append((file, self.find_next_newline(file_handler, pos),
+                               self.find_next_newline(file_handler, next_pos)))
+            pos = next_pos
+        file_handler.close()
+        return chunks
+
+    def find_next_newline(self, file_handler, pos):
+        file_handler.seek(pos)
+        line = file_handler.readline()
+        return pos + len(line)
 
 
 class MapPartition(Partition):
