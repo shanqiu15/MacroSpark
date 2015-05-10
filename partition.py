@@ -26,12 +26,6 @@ class Partition(object):
     def is_repartition(self):
         return False
 
-    def get_data(self):
-        if self.is_cached:
-            return self.data
-        else:
-            self.cache()
-            return self.data
 
     def setup_connections(self, worker_conn, driver_conn, index):        
         self.driver_conn = driver_conn
@@ -89,10 +83,7 @@ class MapPartition(Partition):
     def cache(self, rdd_partition = None):
         self.data = [self.func(element) for element in self.parent.get(rdd_partition)]
         self.is_cached = True
-        if self.collect:
-            self.driver_conn.collect(self.data)
-        if self.count:
-            self.driver_conn.count_acc([len(self.data)])
+
         # print self.data
         # print "Cache the result for MapPartition"
         #return self
@@ -121,10 +112,6 @@ class MapValuePartition(Partition):
     def cache(self, rdd_partition = None):
         self.data = [(key, self.func(value)) for key, value in self.parent.get(rdd_partition)]
         self.is_cached = True
-        if self.collect:
-            self.driver_conn.collect(self.data)
-        if self.count:
-            self.driver_conn.count_acc([len(self.data)])
 
         # print self.data
         # print "Cache the result for MapValuePartition"
@@ -157,10 +144,6 @@ class FlatMapPartition(Partition):
             for i in self.func(element):
                 self.data.append(i)
         self.is_cached = True
-        if self.collect:
-            self.driver_conn.collect(self.data)
-        if self.count:
-            self.driver_conn.count_acc([len(self.data)])
 
         # print self.data
         # print "Cache the result for FlatMapPartition"
@@ -192,10 +175,6 @@ class FilterPartition(Partition):
     def cache(self, rdd_partition = None):
         self.data = [element for element in self.parent.get(rdd_partition) if self.func(element)]
         self.is_cached = True
-        if self.collect:
-            self.driver_conn.collect(self.data)
-        if self.count:
-            self.driver_conn.count_acc([len(self.data)])
 
         # print self.data
         # print "Cache the result for FilePartition"
@@ -229,10 +208,6 @@ class GroupByKeyPartition(Partition):
         sorted_rdd = sorted(parent_rdd)
         self.data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
         self.is_cached = True
-        if self.collect:
-            self.driver_conn.collect(self.data)
-        if self.count:
-            self.driver_conn.count_acc([len(self.data)])
 
         # print self.data
         # print "Cache the result for GroupByKeyPartition"
@@ -265,10 +240,6 @@ class ReduceByKeyPartition(Partition):
         group_data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
         self.data = [(key, reduce(self.func, group)) for key, group in group_data]
         self.is_cached = True
-        if self.collect:
-            self.driver_conn.collect(self.data)
-        if self.count:
-            self.driver_conn.count_acc([len(self.data)])
 
         # print self.data
         # print "Cache the result for ReduceByKeyPartition"
@@ -308,10 +279,6 @@ class JoinPartition(Partition):
                 if i[0] == j[0]:
                     self.data.append((i[0], (i[1], j[1])))
         self.is_cached = True
-        if self.collect:
-            self.driver_conn.collect(self.data)
-        if self.count:
-            self.driver_conn.count_acc([len(self.data)])
 
         # print self.data
         # print "Cache the data for JoinPartition"
@@ -371,10 +338,6 @@ class RePartition(Partition):
             conn.collect_data(self.rdd_id, self.split_result[index])
 
         self.is_cached = True
-        if self.collect:
-            self.driver_conn.collect(self.data)
-        if self.count:
-            self.driver_conn.count_acc([len(self.data)])
 
         # print "Cached the data for the RePartition:"
         # print self.data

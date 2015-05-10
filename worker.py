@@ -67,14 +67,19 @@ class Worker(object):
         print "This is the caculation for ", f.rdd_id
         print f.data
 
-        return True 
+        return True
 
+    # Send the partition to driver used for collect
     def collect(self, rdd_id):
         return self.rdd_partition[rdd_id].data
+
+    def count(self, rdd_id):
+        return len(self.rdd_partition[rdd_id].data)
 
     def getPartition(self, rdd_id):
         return self.rdd_partition[rdd_id]
 
+    # collect data in repartition phase
     def collect_data(self, rdd_id, split):
         self.rdd_partition[rdd_id].data = self.rdd_partition[rdd_id].data + split
 

@@ -86,19 +86,21 @@ class SparkContext():
         '''
         for stage in self.stages:
             self.rdd_data = [] #record the rdd collect data
-            self.count = [] # a list record the count for each partition
+            self.counter = 0 # a list record the count for each partition
             threads = [gevent.spawn(self.execute, stage, conn) for conn in self.connections]
             gevent.joinall(threads)
-            if self.rdd_data:
+            if stage.collect:
+                for conn in self.connections:
+                    self.rdd_data = self.rdd_data + conn.collect(stage.rdd_id)
                 print self.rdd_data
+
             if stage.count:
-                print sum(self.count)
+                for conn in self.connections:
+                    self.counter = self.counter + conn.count(stage.rdd_id)
+                print self.counter
 
     def collect(self, data):
         self.rdd_data = self.rdd_data + data
-
-    def count_acc(self, count):
-        self.count = self.count + count
 
     def worker_setup(self):
         '''
@@ -209,8 +211,8 @@ if __name__ == "__main__":
     #r = ReduceByKey(f, lambda x, y: x + y)
     #z = Filter(m, lambda a: int(a[1]) < 2)
     j = Join(f, f)
-    # j.rdd_collect()
-    # j.rdd_count()
+    j.rdd_collect()
+    j.rdd_count()
 
 
 
