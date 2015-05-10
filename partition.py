@@ -12,6 +12,8 @@ class Partition(object):
 
     def set_partition_index(self, index):
         self.partition_index = index
+        if self.parent:
+            self.parent.set_partition_index = index
 
     # def collect(self):
     #     elements = []
@@ -25,7 +27,6 @@ class Partition(object):
 
     def is_repartition(self):
         return False
-
 
     def setup_connections(self, worker_conn, driver_conn, index):        
         self.driver_conn = driver_conn
