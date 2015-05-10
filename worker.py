@@ -58,7 +58,8 @@ class Worker(object):
         f = unpickler.load()
 
         #setup the connections for repartition rdd
-        f.setup_connections(self.worker_conn, self.driver_conn, self.index)
+        f.setup_connections(self.worker_conn, self.driver_conn)
+        f.set_partition_index(self.index)
 
         #record this rdd partition and execute this clousure 
         self.rdd_partition[f.rdd_id] = f

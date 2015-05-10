@@ -13,25 +13,14 @@ class Partition(object):
     def set_partition_index(self, index):
         self.partition_index = index
         if self.parent:
-            self.parent.set_partition_index = index
+            self.parent.set_partition_index(index)
 
-    # def collect(self):
-    #     elements = []
-    #     for element in self.get():
-    #         elements.append(element)
-    #     return elements
-
-    def show(self):
-        for elem in self.get():
-            print elem
+    def setup_connections(self, worker_conn, driver_conn):
+        self.driver_conn = driver_conn
+        self.worker_conn = worker_conn
 
     def is_repartition(self):
         return False
-
-    def setup_connections(self, worker_conn, driver_conn, index):        
-        self.driver_conn = driver_conn
-        self.worker_conn = worker_conn
-        self.partition_index = index
 
 
 class FilePartition(Partition):
@@ -204,6 +193,9 @@ class GroupByKeyPartition(Partition):
             for element in rdd_partition[self.rdd_id].data:
                 yield element
 
+    def set_partition_index(self, index):
+        self.partition_index = index
+
     def cache(self, rdd_partition = None):
         parent_rdd = [element for element in self.parent.get(rdd_partition)]
         sorted_rdd = sorted(parent_rdd)
@@ -234,6 +226,8 @@ class ReduceByKeyPartition(Partition):
             for element in rdd_partition[self.rdd_id].data:
                 yield element            
 
+    def set_partition_index(self, index):
+        self.partition_index = index
 
     def cache(self, rdd_partition= None):
         parent_rdd = [element for element in self.parent.get(rdd_partition)]
@@ -272,6 +266,9 @@ class JoinPartition(Partition):
         else:
             for element in rdd_partition[self.rdd_id].data:
                 yield element
+
+    def set_partition_index(self, index):
+        self.partition_index = index
 
     def cache(self, rdd_partition= None):
         self.data = []
