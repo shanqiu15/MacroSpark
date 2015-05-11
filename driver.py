@@ -67,6 +67,12 @@ class SparkContext():
 
 
     def visit_lineage(self, rdd):
+        '''
+        :param rdd:
+        :return:
+
+        Visit the lineage of the rdd and generate the Stages
+        '''
 
         #initialize repartition list and the stage list
         self.repartition_stages = []
@@ -102,7 +108,7 @@ class SparkContext():
         pickler = cloudpickle.CloudPickler(output)
         pickler.dump(stage)
         objstr = output.getvalue()
-        return conn.run(objstr)
+        conn.run(objstr)
 
     def job_schedule(self):
         '''
@@ -114,6 +120,10 @@ class SparkContext():
             self.counter = 0   #The number of the result RDD
             threads = [gevent.spawn(self.__execute, stage, conn) for conn in self.connections]
             gevent.joinall(threads)
+            for thread in threads:
+                if not thread.successful():
+                    self.fail_over()
+                    return
             if stage.collect:
                 for conn in self.connections:
                     self.rdd_data = self.rdd_data + conn.collect(stage.rdd_id)
@@ -126,7 +136,9 @@ class SparkContext():
                 print self.counter
                 stage.count = False
 
-
+    def fail_over(self):
+        self.worker_setup()
+        self.job_schedule()
 
     def collect(self, rdd):
         '''

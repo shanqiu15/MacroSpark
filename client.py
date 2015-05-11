@@ -2,10 +2,7 @@ from rdd import *
 from partition import *
 import zerorpc
 import StringIO
-import pickle
-
 import cloudpickle
-import gevent
 
 
 r = TextFile('myfile')

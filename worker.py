@@ -5,15 +5,8 @@ print sys.version_info
 
 import StringIO
 import pickle
-
-import cloudpickle
-import gevent
 import zerorpc
-
-from rdd import *
 from partition import *
-
-# python worker 127.0.01:9001
 
 class Worker(object):
 
@@ -33,6 +26,7 @@ class Worker(object):
     def setup_worker_con(self, worker_list, driver_addr):
         self.worker_list  = worker_list
         self.worker_conn = {}
+        self.rdd_partition = {} #Clean all the cache during the worker resetting
         for index, worker in enumerate(worker_list):
             if self.addr != worker:
                 c = zerorpc.Client(timeout=1)
@@ -45,17 +39,6 @@ class Worker(object):
         self.driver_conn = zerorpc.Client(timeout=1)
         self.driver_conn.connect("tcp://" + driver_addr)
         print "driver connection: ", self.driver_conn
-
-    # def stage_test(self, objstr):
-    #     '''
-    #     Send the partition object to the client and execute the clousure
-    #     '''
-    #     client_input = StringIO.StringIO(objstr)
-    #     unpickler = pickle.Unpickler(client_input)
-    #     j = unpickler.load()
-    #     j.cache()
-    #     return str(j.lineage)
-
 
     def run(self, objstr):
         input = StringIO.StringIO(objstr)
@@ -70,13 +53,16 @@ class Worker(object):
         self.rdd_partition[f.rdd_id] = f
         f.cache(self.rdd_partition)
 
-        print "This is the caculation for ", f.rdd_id
-        print f.data
+        # print "This is the caculation for ", f.rdd_id
+        # print f.data
 
-        return True
-
-    # Send the partition to driver used for collect
     def collect(self, rdd_id):
+        '''
+        :param rdd_id:
+        :return:
+
+        Send the partition data to driver used for collection
+        '''
         return self.rdd_partition[rdd_id].data
 
     def count(self, rdd_id):

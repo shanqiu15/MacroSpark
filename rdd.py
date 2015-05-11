@@ -92,6 +92,7 @@ class FlatMap(RDD):
     def need_repartition(self):
         return False
 
+
 class ReduceByKey(RDD):
     def __init__(self, parent, func):
         self.parent = RePartition(parent)
@@ -105,6 +106,7 @@ class ReduceByKey(RDD):
     def need_repartition(self):
         return True
 
+
 class GroupByKey(RDD):
     def __init__(self, parent):
         self.parent = RePartition(parent)
@@ -115,6 +117,7 @@ class GroupByKey(RDD):
 
     def need_repartition(self):
         return True    
+
 
 class MapValue(RDD):
     def __init__(self, parent, func):
@@ -159,17 +162,6 @@ class RePartition(RDD):
 
     def need_repartition(self):
         return False
-
-# class Collect(RDD):
-#     def __init__(self, parent):
-#         super(Collect, self).__init__()
-#         self.parent = parent
-#
-#         #Store all the operations until now (a generator list)
-#         self.set_lineage()
-#
-#     def need_repartition(self):
-#         return False
 
 
 

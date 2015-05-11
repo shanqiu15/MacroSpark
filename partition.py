@@ -355,16 +355,5 @@ if __name__ == "__main__":
     p.partition_index = 1
     p.cache()
     r = ReduceByKeyPartition(5, p, lambda x, y: x + y)
-
-
     r.cache()
     print r.data
-
-    # r = FilePartition(1, 1, 'myfile')
-    # m = MapPartition(2, 1, r, lambda s: s.split())
-    # f = FilterPartition(3, 1, m, lambda a: int(a[1]) > 2)
-
-    # z = FilePartition(4 , 1, 'myfile')
-    # q = MapPartition(5, 1, r, lambda s: s.split())
-    # j = JoinPartition(6, 1, m, q)
-    # print j.collect()
