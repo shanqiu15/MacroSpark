@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
+import sys
+print sys.version_info
+
 import StringIO
 import pickle
 
 import cloudpickle
 import gevent
 import zerorpc
-import sys
 
 from rdd import *
 from partition import *

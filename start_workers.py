@@ -1,6 +1,6 @@
 __author__ = 'hao'
 
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 '''
 python start_workers.py hao@localhost start_workers.sh
 '''
@@ -11,9 +11,6 @@ import os.path
 import subprocess
 import sys
 
-MACRO_SPARK_DIR = "/Users/mingluma/2015Spring/OS2015s/macroSpark/MacroSpark"
-#MACRO_SPARK_DIR = "/Local/Users/hao/Desktop/MacroSpark/worker.py"
-
 class Remote(object):
     def __init__(self, worker_addr):
         self.host = worker_addr.split(":")[0]
@@ -22,24 +19,25 @@ class Remote(object):
 
     def start(self):
         subprocess.Popen(['ssh',
-                              self.host,
-                              "python",
-                              MACRO_SPARK_DIR + "/worker.py",
-                              "127.0.0.1:" + self.port])
+		          self.host,
+                          "export PATH=$HOME/bin:$PATH; python " + self.root_dir + "/worker.py 127.0.0.1:" + self.port])
 
     def stop(self):
         subprocess.Popen([
             'ssh',
             self.host,
-            "ps aux |grep 127.0.0.1:" + self.port + "| awk '{print \"kill -9 \" $2}' |bash"
+            "ps aux |grep 127.0.0.1:" + self.port + "| awk '{print $2}' |xargs kill -9"
         ])
 
 
 if __name__ == '__main__':
     remotes = [
-        Remote("127.0.0.1:9001"),
-        Remote("127.0.0.1:9002"),
-        Remote("127.0.0.1:9003"),
+        Remote("bass16.cs.usfca.edu:23000"),
+        Remote("bass16.cs.usfca.edu:23001"),
+        Remote("bass16.cs.usfca.edu:23002"),
+        #Remote("127.0.0.1:9001"),
+        #Remote("127.0.0.1:9002"),
+        #Remote("127.0.0.1:9003"),
     ]
 
     for r in remotes:
