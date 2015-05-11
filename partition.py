@@ -45,8 +45,8 @@ class FilePartition(Partition):
         self.data = f.readlines()
         f.close()
         self.is_cached = True
-        print self.data
-        print "Cached the result for FilePartition" 
+        # print self.data
+        # print "Cached the result for FilePartition"
 
 
 class MapPartition(Partition):
@@ -57,7 +57,6 @@ class MapPartition(Partition):
         self.func = func
 
     def get(self, rdd_partition = None):
-        print "This is the caculation in mapper"
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -87,7 +86,6 @@ class MapValuePartition(Partition):
         self.func = func
 
     def get(self, rdd_partition = None):
-        print "This is the caculation in MapValuePartition"
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -115,7 +113,6 @@ class FlatMapPartition(Partition):
         self.func = func
 
     def get(self, rdd_partition = None):
-        print "This is the caculation in flat mapper"
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -148,7 +145,6 @@ class FilterPartition(Partition):
         self.func = func
 
     def get(self, rdd_partition = None):
-        print "This is the caculation in filter"
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -304,7 +300,6 @@ class RePartition(Partition):
         the element back to tuples that's why we do 
         yield (element[0], element[1])
         '''
-        print "Call the get in RePartition"
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -333,7 +328,8 @@ class RePartition(Partition):
         # print "************* self.worker_conn in RePartition **********"
         # print self.worker_conn
         for index, conn in self.worker_conn.iteritems():
-            conn.collect_data(self.rdd_id, self.split_result[index])
+            if index in self.split_result:
+                conn.collect_data(self.rdd_id, self.split_result[index])
 
         self.is_cached = True
 

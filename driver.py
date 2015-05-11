@@ -66,7 +66,7 @@ class SparkContext():
         logging.debug("Alive workers: %s", tuple(self.workers))
 
 
-    def visit_lineage(self, rdd):
+    def __visit_lineage(self, rdd):
         '''
         :param rdd:
         :return:
@@ -96,8 +96,7 @@ class SparkContext():
         client_input = StringIO.StringIO(objstr)
         unpickler = pickle.Unpickler(client_input)
         j = unpickler.load()
-        self.visit_lineage(j)
-        self.job_schedule()
+        self.job_schedule(j)
 
 
     def __execute(self, stage, conn):
@@ -110,11 +109,12 @@ class SparkContext():
         objstr = output.getvalue()
         conn.run(objstr)
 
-    def job_schedule(self):
+    def job_schedule(self, rdd):
         '''
         Execute the stage one by one
         Output the result based on the collect and count flag
         '''
+        self.__visit_lineage(rdd)
         for stage in self.stages:
             self.rdd_data = [] #record the rdd collect data
             self.counter = 0   #The number of the result RDD
@@ -122,7 +122,7 @@ class SparkContext():
             gevent.joinall(threads)
             for thread in threads:
                 if not thread.successful():
-                    self.fail_over()
+                    self.fail_over(rdd)
                     return
             if stage.collect:
                 for conn in self.connections:
@@ -136,9 +136,9 @@ class SparkContext():
                 print self.counter
                 stage.count = False
 
-    def fail_over(self):
+    def fail_over(self, rdd):
         self.worker_setup()
-        self.job_schedule()
+        self.job_schedule(rdd)
 
     def collect(self, rdd):
         '''
@@ -150,8 +150,8 @@ class SparkContext():
         sc.collect(rdd)
         '''
         rdd.collect = True
-        self.visit_lineage(rdd)
-        self.job_schedule()
+        self.job_schedule(rdd)
+        rdd.collect = False
 
     def count(self, rdd):
         '''
@@ -163,8 +163,8 @@ class SparkContext():
         sc.count(rdd)
         '''
         rdd.count = True
-        self.visit_lineage(rdd)
-        self.job_schedule()
+        self.job_schedule(rdd)
+        rdd.count = False
 
     def _set_collect_count(self, rdd):
         '''
@@ -243,7 +243,6 @@ if __name__ == "__main__":
     #r = ReduceByKey(f, lambda x, y: x + y)
     #z = Filter(m, lambda a: int(a[1]) < 2)
     j = Join(f, f)
-    j.rdd_count()
 
     #Setup the driver and worker
     worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003", "127.0.0.1:9004"]
@@ -252,8 +251,8 @@ if __name__ == "__main__":
     sc.worker_setup()
 
     #the process of caculate RDD "z"
-    sc.visit_lineage(j)
-    sc.job_schedule()
+    # sc.job_schedule(j)
+    sc.collect(j)
 
     logging.basicConfig()
 

@@ -1,30 +1,23 @@
-__author__ = 'hao'
 from rdd import *
 from partition import *
-from gevent.pool import Group
 import logging
 import zerorpc
 import StringIO
 import pickle
 import sys
+import code
 
 import cloudpickle
 import gevent
-import code
 
 class SparkContext():
 
     def __init__(self, worker_list, addr):
         #setup cluster worker connections
-        self.workers  = worker_list
-        # self.evt = Event()
+        self.worker_list = worker_list # worker list in the config file
+        self.workers  = [] # alive workers
         self.addr = addr
         self.connections = []
-        for index, worker in enumerate(worker_list):
-            c = zerorpc.Client(timeout=1)
-            c.connect("tcp://" + worker)
-            c.setup_worker_con(worker_list, self.addr)
-            self.connections.append(c)
 
         #key: rdd_id, value: partition operation object
         self.operations = {}
@@ -42,7 +35,45 @@ class SparkContext():
                          "RePartition" : self.visitRepartition,
                         }
 
-    def visit_lineage(self, rdd):
+    def _get_live_workers(self):
+        '''Get all alive workers'''
+        logging.debug('Start getting workers ')
+        self.workers = []
+        self.connections = []
+        for index, worker in enumerate(self.worker_list):
+            c = zerorpc.Client(timeout=1)
+            c.connect("tcp://" + worker)
+            try:
+                c.are_you_there()
+                self.connections.append(c)
+                self.workers.append(worker)
+            except zerorpc.TimeoutExpired:
+                continue
+
+    def worker_setup(self):
+        #Get the live workers
+        self._get_live_workers()
+        if len(self.workers) == 0:
+            print "No workers running. Please check your servers!!!"
+            sys.exit()
+
+        print "Setup process succeed  :-)"
+        print "New worker list:"
+        for i in self.workers:
+            print i
+        threads = [gevent.spawn(conn.setup_worker_con, self.workers, self.addr) for conn in self.connections]
+        gevent.joinall(threads)
+        print "Now you can run your Spark jobs."
+        logging.debug("Alive workers: %s", tuple(self.workers))
+
+
+    def __visit_lineage(self, rdd):
+        '''
+        :param rdd:
+        :return:
+
+        Visit the lineage of the rdd and generate the Stages
+        '''
 
         #initialize repartition list and the stage list
         self.repartition_stages = []
@@ -61,36 +92,39 @@ class SparkContext():
 
     def execute_lineage(self, objstr):
         '''
-        Send the rdd object from the client and generate the lineage back
+        Receive the rdd object from the client and generate the lineage back
         '''
-        # self.evt.set()
         client_input = StringIO.StringIO(objstr)
         unpickler = pickle.Unpickler(client_input)
         j = unpickler.load()
-        lineage = self.visit_lineage(j)
-        return str(lineage)
+        self.job_schedule(j)
 
 
-
-
-    def execute(self, stage, conn):
-        # self.evt.wait()
+    def __execute(self, stage, conn):
+        '''
+        Send the stage task to worker and execute this stage in the worker
+        '''
         output = StringIO.StringIO()
         pickler = cloudpickle.CloudPickler(output)
         pickler.dump(stage)
         objstr = output.getvalue()
-        return conn.run(objstr)
+        conn.run(objstr)
 
-    def job_schedule(self):
+    def job_schedule(self, rdd):
         '''
         Execute the stage one by one
-        Output the RDD if collect was true
+        Output the result based on the collect and count flag
         '''
+        self.__visit_lineage(rdd)
         for stage in self.stages:
             self.rdd_data = [] #record the rdd collect data
-            self.counter = 0 # a list record the count for each partition
-            threads = [gevent.spawn(self.execute, stage, conn) for conn in self.connections]
+            self.counter = 0   #The number of the result RDD
+            threads = [gevent.spawn(self.__execute, stage, conn) for conn in self.connections]
             gevent.joinall(threads)
+            for thread in threads:
+                if not thread.successful():
+                    self.fail_over(rdd)
+                    return
             if stage.collect:
                 for conn in self.connections:
                     self.rdd_data = self.rdd_data + conn.collect(stage.rdd_id)
@@ -103,110 +137,103 @@ class SparkContext():
                 print self.counter
                 stage.count = False
 
-    def collect(self, rdd):
-        rdd.collect = True
-        self.visit_lineage(rdd)
-        self.job_schedule()
+    def fail_over(self, rdd):
+        self.worker_setup()
+        self.job_schedule(rdd)
 
-    def worker_setup(self):
+    def collect(self, rdd):
         '''
-        reset up worker connection and other configuration after worker failure
+        :param rdd:
+        :return:
+
+        Usage:
+        sc = SparkContext(...)
+        sc.collect(rdd)
         '''
-        pass
+        rdd.collect = True
+        self.job_schedule(rdd)
+        rdd.collect = False
+
+    def count(self, rdd):
+        '''
+        :param rdd:
+        :return:
+
+        Usage:
+        sc = SparkContext(...)
+        sc.count(rdd)
+        '''
+        rdd.count = True
+        self.job_schedule(rdd)
+        rdd.count = False
 
     def _set_collect_count(self, rdd):
+        '''
+        :param rdd:
+        :return: None
+        Set the collect and count flag for the partition operations
+        '''
         if rdd.collect:
             self.operations[rdd.id].collect = True
         if rdd.count:
             self.operations[rdd.id].count = True
 
 
-    # define the function blocks
+    # Visit functions visit the RDD and convert the rdd transformation to
+    # Partition Operations
     def visitTextFile(self, textfile):
-        # print "visit TestFile %d", textfile.id
-        # print textfile, "\n"
-        # print textfile.__class__.__name__
-        # print textfile.filePath
-
         self.operations[textfile.id] = FilePartition(textfile.id, textfile.filePath, len(self.workers))
         self._set_collect_count(textfile)
 
 
     def visitMap(self, mapper):
-        # print "visit Map %d", mapper.id
-        # print mapper, "\n"
-
         parent = mapper.get_parent()
         self.operations[mapper.id] = MapPartition(mapper.id, self.operations[parent.id], mapper.func)
         self._set_collect_count(mapper)
 
 
     def visitFilter(self, filt):
-        # print "visit Filter %d", filt.id
-        # print filt, "\n"
-
         parent = filt.get_parent()
         self.operations[filt.id] = FilterPartition(filt.id, self.operations[parent.id], filt.func)
         self._set_collect_count(filt)
 
 
     def visitFlatmap(self, flatMap):
-        # print "visit FlatMap %d", flatMap.id
-        # print flatMap, "\n"
-
         parent = flatMap.get_parent()
         self.operations[flatMap.id] = FlatMapPartition(flatMap.id, self.operations[parent.id], flatMap.func)
         self._set_collect_count(flatMap)
 
 
     def visitGroupByKey(self, groupByKey):
-        # print "visit GroupByKey %d", groupByKey.id
-        # print groupByKey, "\n"
-
         parent = groupByKey.get_parent()
         self.operations[groupByKey.id] = GroupByKeyPartition(groupByKey.id, self.operations[parent.id])
         self._set_collect_count(groupByKey)
 
 
     def visitReduceByKey(self, reduceByKey):
-        # print "visit ReduceByKey %d", reduceByKey.id
-        # print reduceByKey, "\n"
-
         parent = reduceByKey.get_parent()
         self.operations[reduceByKey.id] = ReduceByKeyPartition(reduceByKey.id, self.operations[parent.id], reduceByKey.func)
         self._set_collect_count(reduceByKey)
 
 
     def visitMapValue(self, mapValue):
-        # print "visit MapValue %d", mapValue.id
-        # print mapValue, "\n"
-
         parent = mapValue.get_parent()
         self.operations[mapValue.id] = MapValuePartition(mapValue.id, self.operations[parent.id], mapValue.func)
         self._set_collect_count(mapValue)
 
 
     def visitJoin(self, join):
-        # print "visit join %d",join.id
-        # print join,"\n"
-
         parent = join.get_parent()
         self.operations[join.id] = JoinPartition(join.id, self.operations[parent[0].id],self.operations[parent[1].id])
         self._set_collect_count(join)
 
 
     def visitRepartition(self, repartition):
-        # print "visit repartition %d",repartition.id
-        # print repartition, "\n"
-
         parent = repartition.get_parent()
         self.stages.append(self.operations[parent.id])
         self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], len(self.workers))
         self.stages.append(self.operations[repartition.id])
         self._set_collect_count(repartition)
-
-    def count(self, rdd):
-        pass
 
 if __name__ == "__main__":
 
@@ -217,23 +244,12 @@ if __name__ == "__main__":
     r = ReduceByKey(f, lambda x, y: x + y)
     z = Filter(r, lambda a: int(a[1]) < 2)
     j = Join(f, f)
-    # j.rdd_collect()
-    # j.rdd_count()
-
-
 
     #Setup the driver and worker
-    # worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003", "127.0.0.1:9004"]
-    worker_list = ["127.0.0.1:9001", "127.0.0.1:9002"]
+    worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003", "127.0.0.1:9004"]
+    #worker_list = ["127.0.0.1:9001", "127.0.0.1:9002"]
     sc = SparkContext(worker_list, sys.argv[1])
-
-    threads = [gevent.spawn(conn.setup_worker_con, worker_list, "127.0.0.1:4242") for conn in sc.connections]
-    gevent.joinall(threads)
-
-    #the process of caculate RDD "z"
-    # sc.visit_lineage(j)
-    # sc.job_schedule()
+    sc.worker_setup()
 
     code.interact(local=globals())
-
 
