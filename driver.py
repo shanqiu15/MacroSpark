@@ -181,6 +181,7 @@ class SparkContext():
     # Visit functions visit the RDD and convert the rdd transformation to
     # Partition Operations
     def visitTextFile(self, textfile):
+
         self.operations[textfile.id] = FilePartition(textfile.id, textfile.filePath, len(self.workers))
         self._set_collect_count(textfile)
 
@@ -233,6 +234,8 @@ class SparkContext():
         self.operations[repartition.id] = RePartition(repartition.id, self.operations[parent.id], len(self.workers))
         self.stages.append(self.operations[repartition.id])
         self._set_collect_count(repartition)
+
+
 
 if __name__ == "__main__":
 

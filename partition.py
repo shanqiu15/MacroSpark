@@ -321,7 +321,8 @@ class RePartition(Partition):
                 self.split_result[self.func(element)] = [element]
 
         #Initiallize self.data
-        self.data = self.data + self.split_result[self.partition_index]
+        if self.partition_index in self.split_result:
+            self.data = self.data + self.split_result[self.partition_index]
         # print "This is the local assigned data:"
         # print self.data
 
