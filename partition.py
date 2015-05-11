@@ -1,8 +1,8 @@
 from itertools import groupby
 
-class Partition(object):
 
-    def __init__(self, rdd_id, partition_index = None):
+class Partition(object):
+    def __init__(self, rdd_id, partition_index=None):
         self.rdd_id = rdd_id
         self.partition_index = partition_index
         self.data = []
@@ -24,39 +24,46 @@ class Partition(object):
 
 
 class FilePartition(Partition):
-
-    def __init__(self, rdd_id, filename, worker_num):
+    def __init__(self, rdd_id, worker_num, file_chunks):
         super(FilePartition, self).__init__(rdd_id)
-        self.filename = filename
         self.partition_num = worker_num
         self.parent = None
+        self.file_chunks = file_chunks
 
-    def get(self, rdd_partition = None):
+    def get(self, rdd_partition=None):
         if not self.data:
-            f = open(self.filename)
-            self.data = f.readlines()
-            f.close()
-    
+            self.cache(rdd_partition)
+
         for line in self.data:
             yield line
 
-    def cache(self, rdd_partition = None):
-        f = open(self.filename)
-        self.data = f.readlines()
-        f.close()
+    def cache(self, rdd_partition=None):
+        my_chunks = self.get_chunks()
+        for chunk in my_chunks:
+            file_reader = open(chunk[0], "r")
+            file_reader.seek(chunk[1])
+            self.data.append(file_reader.read(chunk[2] - chunk[1]).splitlines())
+            file_reader.close()
         self.is_cached = True
         # print self.data
         # print "Cached the result for FilePartition"
 
+    def get_chunks(self):
+        my_chunks = []
+        i = self.partition_index
+        while i < len(self.file_chunks):
+            my_chunks.append(self.file_chunks[i])
+            i += self.partition_num
+        return my_chunks
+
 
 class MapPartition(Partition):
-
     def __init__(self, rdd_id, parent, func):
         super(MapPartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
-    def get(self, rdd_partition = None):
+    def get(self, rdd_partition=None):
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -69,23 +76,22 @@ class MapPartition(Partition):
                 yield element
 
 
-    def cache(self, rdd_partition = None):
+    def cache(self, rdd_partition=None):
         self.data = [self.func(element) for element in self.parent.get(rdd_partition)]
         self.is_cached = True
 
         # print self.data
         # print "Cache the result for MapPartition"
-        #return self
+        # return self
 
 
 class MapValuePartition(Partition):
-
     def __init__(self, rdd_id, parent, func):
         super(MapValuePartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
-    def get(self, rdd_partition = None):
+    def get(self, rdd_partition=None):
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -97,13 +103,13 @@ class MapValuePartition(Partition):
             for element in rdd_partition[self.rdd_id].data:
                 yield element
 
-    def cache(self, rdd_partition = None):
+    def cache(self, rdd_partition=None):
         self.data = [(key, self.func(value)) for key, value in self.parent.get(rdd_partition)]
         self.is_cached = True
 
         # print self.data
         # print "Cache the result for MapValuePartition"
-        #return self
+        # return self
 
 
 class FlatMapPartition(Partition):
@@ -112,7 +118,7 @@ class FlatMapPartition(Partition):
         self.parent = parent
         self.func = func
 
-    def get(self, rdd_partition = None):
+    def get(self, rdd_partition=None):
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -125,7 +131,7 @@ class FlatMapPartition(Partition):
             for element in rdd_partition[self.rdd_id].data:
                 yield element
 
-    def cache(self, rdd_partition = None):
+    def cache(self, rdd_partition=None):
         self.data = []
         for element in self.parent.get(rdd_partition):
             for i in self.func(element):
@@ -134,17 +140,16 @@ class FlatMapPartition(Partition):
 
         # print self.data
         # print "Cache the result for FlatMapPartition"
-        #return self
+        # return self
 
 
 class FilterPartition(Partition):
-    
-    def __init__(self,  rdd_id, parent, func):
+    def __init__(self, rdd_id, parent, func):
         super(FilterPartition, self).__init__(rdd_id)
         self.parent = parent
         self.func = func
 
-    def get(self, rdd_partition = None):
+    def get(self, rdd_partition=None):
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -158,13 +163,13 @@ class FilterPartition(Partition):
                 yield element
 
 
-    def cache(self, rdd_partition = None):
+    def cache(self, rdd_partition=None):
         self.data = [element for element in self.parent.get(rdd_partition) if self.func(element)]
         self.is_cached = True
 
         # print self.data
         # print "Cache the result for FilePartition"
-        #return self
+        # return self
 
 
 class GroupByKeyPartition(Partition):
@@ -172,7 +177,7 @@ class GroupByKeyPartition(Partition):
         super(GroupByKeyPartition, self).__init__(rdd_id)
         self.parent = parent
 
-    def get(self, rdd_partition = None):
+    def get(self, rdd_partition=None):
         '''
         This function can be optimized by not creating list directly
         Should do the optimization later
@@ -192,7 +197,7 @@ class GroupByKeyPartition(Partition):
     def set_partition_index(self, index):
         self.partition_index = index
 
-    def cache(self, rdd_partition = None):
+    def cache(self, rdd_partition=None):
         parent_rdd = [element for element in self.parent.get(rdd_partition)]
         sorted_rdd = sorted(parent_rdd)
         self.data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
@@ -200,7 +205,7 @@ class GroupByKeyPartition(Partition):
 
         # print self.data
         # print "Cache the result for GroupByKeyPartition"
-        #return self
+        # return self
 
 
 class ReduceByKeyPartition(Partition):
@@ -209,7 +214,7 @@ class ReduceByKeyPartition(Partition):
         self.parent = parent
         self.func = func
 
-    def get(self, rdd_partition= None):
+    def get(self, rdd_partition=None):
         if self.rdd_id not in rdd_partition:
             if self.is_cached:
                 for element in self.data:
@@ -220,12 +225,12 @@ class ReduceByKeyPartition(Partition):
                     yield element
         else:
             for element in rdd_partition[self.rdd_id].data:
-                yield element            
+                yield element
 
     def set_partition_index(self, index):
         self.partition_index = index
 
-    def cache(self, rdd_partition= None):
+    def cache(self, rdd_partition=None):
         parent_rdd = [element for element in self.parent.get(rdd_partition)]
         sorted_rdd = sorted(parent_rdd)
         group_data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
@@ -234,7 +239,7 @@ class ReduceByKeyPartition(Partition):
 
         # print self.data
         # print "Cache the result for ReduceByKeyPartition"
-        #return self
+        # return self
 
 
 class JoinPartition(Partition):
@@ -243,7 +248,7 @@ class JoinPartition(Partition):
         self.parent_1 = parent_1
         self.parent_2 = parent_2
 
-    def get(self, rdd_partition= None):
+    def get(self, rdd_partition=None):
         '''
         now we just compare each element with all the elements in the other lists
         we should optimize this function buy sorting the two list first then compare 
@@ -257,7 +262,7 @@ class JoinPartition(Partition):
                 for i in self.parent_1.get(rdd_partition):
                     for j in self.parent_2.get(rdd_partition):
                         if i[0] == j[0]:
-                            #print (i[0], (i[1], j[1]))
+                            # print (i[0], (i[1], j[1]))
                             yield (i[0], (i[1], j[1]))
         else:
             for element in rdd_partition[self.rdd_id].data:
@@ -266,7 +271,7 @@ class JoinPartition(Partition):
     def set_partition_index(self, index):
         self.partition_index = index
 
-    def cache(self, rdd_partition= None):
+    def cache(self, rdd_partition=None):
         self.data = []
         for i in self.parent_1.get(rdd_partition):
             for j in self.parent_2.get(rdd_partition):
@@ -276,16 +281,17 @@ class JoinPartition(Partition):
 
         # print self.data
         # print "Cache the data for JoinPartition"
-        #return self
+        # return self
 
-#RePartition rdd_id = parent.id + 1 
+
+# RePartition rdd_id = parent.id + 1
 class RePartition(Partition):
     def __init__(self, rdd_id, parent, worker_num):
         super(RePartition, self).__init__(rdd_id)
         self.parent = parent
 
         #default hash
-        self.func = lambda x:(hash(x[0]) % worker_num)
+        self.func = lambda x: (hash(x[0]) % worker_num)
         self.split_result = {}
         self.worker_conn = None
         self.driver = None
@@ -294,7 +300,7 @@ class RePartition(Partition):
     def is_repartition(self):
         return True
 
-    def get(self, rdd_partition = None):
+    def get(self, rdd_partition=None):
         '''
         Because zerorpc will convert tuples to list, we have to convert
         the element back to tuples that's why we do 
@@ -338,12 +344,11 @@ class RePartition(Partition):
 
 
 if __name__ == "__main__":
-
     r = FilePartition(1, 'myfile', 1)
     f = FlatMapPartition(2, r, lambda s: s.split())
-    m = MapPartition(3, f, lambda s:(s, 1))
+    m = MapPartition(3, f, lambda s: (s, 1))
     p = RePartition(4, m, 2)
-    p.func = lambda x:(hash(x[0]) % 2)
+    p.func = lambda x: (hash(x[0]) % 2)
     p.partition_index = 1
     p.cache()
     r = ReduceByKeyPartition(5, p, lambda x, y: x + y)

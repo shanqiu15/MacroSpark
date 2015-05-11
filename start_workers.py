@@ -18,8 +18,10 @@ class Remote(object):
         self.root_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
     def start(self):
+        # Preconditions:
+        # On cluster machine: ln -s /opt/python2.7/bin/python2.7 ~/bin/python
         subprocess.Popen(['ssh',
-		          self.host,
+                          self.host,
                           "export PATH=$HOME/bin:$PATH; python " + self.root_dir + "/worker.py 127.0.0.1:" + self.port])
 
     def stop(self):
@@ -32,11 +34,11 @@ class Remote(object):
 
 if __name__ == '__main__':
     remotes = [
-        Remote("bass16.cs.usfca.edu:23000"),
-        Remote("bass16.cs.usfca.edu:23001"),
-        Remote("bass16.cs.usfca.edu:23002"),
-        #Remote("127.0.0.1:9001"),
-        #Remote("127.0.0.1:9002"),
+        #Remote("bass16.cs.usfca.edu:23000"),
+        #Remote("bass16.cs.usfca.edu:23001"),
+        #Remote("bass16.cs.usfca.edu:23002"),
+        Remote("127.0.0.1:9001"),
+        Remote("127.0.0.1:9002"),
         #Remote("127.0.0.1:9003"),
     ]
 

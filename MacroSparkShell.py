@@ -3,7 +3,7 @@ import code
 
 if __name__ == "__main__":
 
-    r = TextFile('testFile')
+    r = TextFile('/Users/mingluma/2015Spring/OS2015s/macroSpark/MacroSpark/testFile')
     m = FlatMap(r, lambda s: s.split())
     f = Map(m, lambda a: (a, 1))
     mv = MapValue(f, lambda s:s)

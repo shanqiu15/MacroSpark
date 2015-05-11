@@ -8,13 +8,15 @@ import sys
 
 import cloudpickle
 import gevent
+from splitter import Splitter
+
 
 class SparkContext():
 
     def __init__(self, worker_list, addr):
         #setup cluster worker connections
         self.worker_list = worker_list # worker list in the config file
-        self.workers  = [] # alive workers
+        self.workers = [] # alive workers
         self.addr = addr
         self.connections = []
 
@@ -64,7 +66,6 @@ class SparkContext():
         gevent.joinall(threads)
         print "Now you can run your Spark jobs."
         logging.debug("Alive workers: %s", tuple(self.workers))
-
 
     def __visit_lineage(self, rdd):
         '''
@@ -181,8 +182,10 @@ class SparkContext():
     # Visit functions visit the RDD and convert the rdd transformation to
     # Partition Operations
     def visitTextFile(self, textfile):
-
-        self.operations[textfile.id] = FilePartition(textfile.id, textfile.filePath, len(self.workers))
+        splitter = Splitter(textfile.filePath, len(self.workers))
+        file_split_result = splitter.split()
+        self.operations[textfile.id] = FilePartition(textfile.id,
+                                                     len(self.workers), file_split_result)
         self._set_collect_count(textfile)
 
 
