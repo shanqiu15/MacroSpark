@@ -1,6 +1,5 @@
 from rdd import *
 from partition import *
-from gevent.pool import Group
 import logging
 import zerorpc
 import StringIO
@@ -9,7 +8,6 @@ import sys
 
 import cloudpickle
 import gevent
-import code
 
 class SparkContext():
 
