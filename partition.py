@@ -323,11 +323,6 @@ class RePartition(Partition):
         #Initiallize self.data
         if self.partition_index in self.split_result:
             self.data = self.data + self.split_result[self.partition_index]
-        # print "This is the local assigned data:"
-        # print self.data
-
-        # print "************* self.worker_conn in RePartition **********"
-        # print self.worker_conn
         for index, conn in self.worker_conn.iteritems():
             if index in self.split_result:
                 conn.collect_data(self.rdd_id, self.split_result[index])
