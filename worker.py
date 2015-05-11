@@ -28,7 +28,7 @@ class Worker(object):
         ans["addr"] = self.addr
         return ans
       
-    def setup_worker_con(self,worker_list, driver_addr):
+    def setup_worker_con(self, worker_list, driver_addr):
         self.worker_list  = worker_list
         self.worker_conn = {}
         for index, worker in enumerate(worker_list):
@@ -44,18 +44,16 @@ class Worker(object):
         self.driver_conn.connect("tcp://" + driver_addr)
         print "driver connection: ", self.driver_conn
 
-    def stage_test(self, objstr):
-        '''
-        Send the partition object to the client and execute the clousure
-        '''
-        client_input = StringIO.StringIO(objstr)
-        unpickler = pickle.Unpickler(client_input)
-        j = unpickler.load()
-        j.cache()
-        return str(j.lineage)
+    # def stage_test(self, objstr):
+    #     '''
+    #     Send the partition object to the client and execute the clousure
+    #     '''
+    #     client_input = StringIO.StringIO(objstr)
+    #     unpickler = pickle.Unpickler(client_input)
+    #     j = unpickler.load()
+    #     j.cache()
+    #     return str(j.lineage)
 
-    # def setup_repartition(self, repartition_rdd):
-    #     self.repartition_rdd = repartition_rdd
 
     def run(self, objstr):
         input = StringIO.StringIO(objstr)
