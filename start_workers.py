@@ -31,7 +31,7 @@ class Remote(object):
         subprocess.Popen([
             'ssh',
             self.host,
-            "ps aux |grep 127.0.0.1:" + self.port + "|xargs kill -9"
+            "ps aux |grep 127.0.0.1:" + self.port + "| awk '{print \"kill -9 \" $2}' |bash"
         ])
 
 
