@@ -1,3 +1,4 @@
+__author__ = 'hao'
 from rdd import *
 from partition import *
 from gevent.pool import Group
@@ -15,12 +16,10 @@ class SparkContext():
 
     def __init__(self, worker_list, addr):
         #setup cluster worker connections
-        self.worker_list = worker_list
         self.workers  = worker_list
         # self.evt = Event()
         self.addr = addr
         self.connections = []
-
         for index, worker in enumerate(worker_list):
             c = zerorpc.Client(timeout=1)
             c.connect("tcp://" + worker)
@@ -42,51 +41,6 @@ class SparkContext():
                          "Join"        : self.visitJoin,
                          "RePartition" : self.visitRepartition,
                         }
-
-    def setup_workers(self):
-        '''
-        find all the alive workers and set the worker list
-        '''
-        pass
-
-    # def setup(self):
-    #     '''After the set up process, start the working process'''
-    #     self._get_workers()
-    #     if len(self.workers) == 0:
-    #         print "No workers running. Please check your servers!!!"
-    #         sys.exit()
-    #
-    #     print "Setup process succeed  :-)"
-    #     print "Worker list:"
-    #     for i in self.workers:
-    #         print self.servers[i]
-    #     print "Now you can run your Spark jobs."
-    #
-    # def _get_workers(self):
-    #     '''Get all alive workers'''
-    #     logging.debug('Start getting workers ')
-    #     self.live_workers_conns = []
-    #     self.connections = []
-    #     for index, worker in enumerate(self.worker_list):
-    #         c = zerorpc.Client(timeout=1)
-    #         c.connect("tcp://" + worker)
-    #         try:
-    #             c.are_you_there()
-    #             c.setup_worker_con(worker_list, self.addr)
-    #             self.connections.append(c)
-    #         except zerorpc.TimeoutExpired:
-    #             continue
-
-
-
-        for conn in self.connections:
-            try:
-                self.connections[j].are_you_there()
-                self.live_workers_conns.append(conn)
-            except zerorpc.TimeoutExpired:
-                continue
-        logging.debug("Alive workers: %s", tuple(self.live_workers_conns))
-
 
     def visit_lineage(self, rdd):
 
@@ -259,12 +213,12 @@ if __name__ == "__main__":
     r = TextFile('testFile')
     m = FlatMap(r, lambda s: s.split())
     f = Map(m, lambda a: (a, 1))
-    #mv = MapValue(f, lambda s:s)
-    #r = ReduceByKey(f, lambda x, y: x + y)
-    #z = Filter(m, lambda a: int(a[1]) < 2)
+    mv = MapValue(f, lambda s:s)
+    r = ReduceByKey(f, lambda x, y: x + y)
+    z = Filter(r, lambda a: int(a[1]) < 2)
     j = Join(f, f)
-    j.rdd_collect()
-    j.rdd_count()
+    # j.rdd_collect()
+    # j.rdd_count()
 
 
 
@@ -276,18 +230,10 @@ if __name__ == "__main__":
     threads = [gevent.spawn(conn.setup_worker_con, worker_list, "127.0.0.1:4242") for conn in sc.connections]
     gevent.joinall(threads)
 
-
     #the process of caculate RDD "z"
-    sc.visit_lineage(j)
-    sc.job_schedule()
+    # sc.visit_lineage(j)
+    # sc.job_schedule()
 
-    # code.interact(local=globals())
+    code.interact(local=globals())
 
-
-
-    logging.basicConfig()
-
-    s = zerorpc.Server(sc)
-    s.bind("tcp://" + sys.argv[1])
-    s.run()
 

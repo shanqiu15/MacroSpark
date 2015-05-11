@@ -22,6 +22,11 @@ class Worker(object):
         #Rdd partition key value pair {rdd_id: partition object}
         #Each time when you want to get the relevent partition using self.rdd_partition[rdd_id]
         self.rdd_partition = {}
+
+    def are_you_there(self):
+        ans = {}
+        ans["addr"] = self.addr
+        return ans
       
     def setup_worker_con(self,worker_list, driver_addr):
         self.worker_list  = worker_list
