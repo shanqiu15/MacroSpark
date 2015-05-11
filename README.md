@@ -1,27 +1,27 @@
 # MacroSpark
 Run Script mode
 
-step 1:
+```
 start worker:
 python worker.py 127.0.0.1:9001
 python worker.py 127.0.0.1:9002
 
 start driver:
 python driver.py 127.0.0.1:4242
-
+```
 Note: this will run the job in driver's main function
 
 
 Run Shell mode:
-step 1:
+```
 start worker:
 python worker.py 127.0.0.1:9001
 python worker.py 127.0.0.1:9002
 
 start driver:
 python MacroSparkShell.py 127.0.0.1:4242
-
-This will start the shell mode like pyspark
+```
+Note:This will start the shell mode like pyspark
 
 
 Code example:
