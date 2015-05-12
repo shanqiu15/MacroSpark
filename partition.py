@@ -42,7 +42,8 @@ class FilePartition(Partition):
         for chunk in my_chunks:
             file_reader = open(chunk[0], "r")
             file_reader.seek(chunk[1])
-            self.data.append(file_reader.read(chunk[2] - chunk[1]).splitlines())
+            self.data = self.data + file_reader.read(chunk[2] - chunk[1]).splitlines()
+            #self.data = self.data.get[0]
             file_reader.close()
         self.is_cached = True
         # print self.data
