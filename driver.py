@@ -64,6 +64,22 @@ class SparkContext():
         for worker in remotes:
             worker.stop()
 
+    def add_worker(self, addr):
+        '''
+        :param addr:
+        :return:
+
+        Add worker "addr" during the execution
+        '''
+        self.worker_list.append(addr)
+        remote = Remote(addr)
+        remote.start()
+        self.worker_setup()
+
+    def worker_register(self, addr):
+        self.worker_list.append(addr)
+        self.worker_setup()
+
     def worker_setup(self):
         #Get the live workers
         self._get_live_workers()
