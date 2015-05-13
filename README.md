@@ -1,4 +1,9 @@
 # MacroSpark
+
+hadoop:MacroSpark hao$ python start_workers.py start
+
+Don't start worker in the shell it will slow down the shell
+
 Run Script mode
 
 ```

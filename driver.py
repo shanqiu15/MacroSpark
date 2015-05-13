@@ -11,6 +11,7 @@ import sys
 import cloudpickle
 import gevent
 from splitter import Splitter
+import code
 
 
 class SparkContext():
@@ -300,3 +301,7 @@ if __name__ == "__main__":
     s = zerorpc.Server(sc)
     s.bind("tcp://" + sys.argv[1])
     s.run()
+
+
+
+    # code.interact(local=globals())
