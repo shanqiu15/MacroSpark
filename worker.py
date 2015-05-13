@@ -58,6 +58,9 @@ class Worker(object):
         # print "This is the caculation for ", f.rdd_id
         # print f.data
 
+    def clean(self):
+        self.rdd_partition = {}
+
     def collect(self, rdd_id):
         '''
         :param rdd_id:

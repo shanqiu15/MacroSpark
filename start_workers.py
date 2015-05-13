@@ -39,7 +39,8 @@ if __name__ == '__main__':
         #Remote("bass16.cs.usfca.edu:23002"),
         Remote("127.0.0.1:9001"),
         Remote("127.0.0.1:9002"),
-        #Remote("127.0.0.1:9003"),
+        Remote("127.0.0.1:9003"),
+        Remote("127.0.0.1:9004"),
     ]
 
     for r in remotes:

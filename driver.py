@@ -144,6 +144,13 @@ class SparkContext():
         Execute the stage one by one
         Output the result based on the collect and count flag
         '''
+        print rdd
+        threads = [gevent.spawn(conn.clean) for conn in self.connections]
+        gevent.joinall(threads)
+        for thread in threads:
+            if not thread.successful():
+                self.fail_over(rdd)
+                return
         self.__visit_lineage(rdd)
         for stage in self.stages:
             self.rdd_data = [] #record the rdd collect data
@@ -272,7 +279,7 @@ class SparkContext():
 
 if __name__ == "__main__":
 
-    # r = TextFile('/Local/Users/hao/Desktop/MacroSpark/testFile')
+    # r = TextFile('/Local/Users/hao/Desktop/MacroSpark/input/testFile')
     # m = FlatMap(r, lambda s: s.split())
     # f = Map(m, lambda a: (a, 1))
     # #mv = MapValue(f, lambda s:s)
