@@ -53,6 +53,8 @@ class Worker(object):
         self.rdd_partition[f.rdd_id] = f
         f.cache(self.rdd_partition)
 
+
+
         # print "This is the caculation for ", f.rdd_id
         # print f.data
 

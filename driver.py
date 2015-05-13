@@ -157,7 +157,8 @@ class SparkContext():
             if stage.collect:
                 for conn in self.connections:
                     self.rdd_data = self.rdd_data + conn.collect(stage.rdd_id)
-                print self.rdd_data
+                for data in self.rdd_data:
+                    print data
                 stage.collect = False
 
             if stage.count:
@@ -271,22 +272,21 @@ class SparkContext():
 
 if __name__ == "__main__":
 
-    r = TextFile('/Local/Users/hao/Desktop/MacroSpark/testFile')
-    m = FlatMap(r, lambda s: s.split())
-    f = Map(m, lambda a: (a, 1))
-    #mv = MapValue(f, lambda s:s)
-    #r = ReduceByKey(f, lambda x, y: x + y)
-    #z = Filter(m, lambda a: int(a[1]) < 2)
-    j = Join(f, f)
+    # r = TextFile('/Local/Users/hao/Desktop/MacroSpark/testFile')
+    # m = FlatMap(r, lambda s: s.split())
+    # f = Map(m, lambda a: (a, 1))
+    # #mv = MapValue(f, lambda s:s)
+    # #r = ReduceByKey(f, lambda x, y: x + y)
+    # #z = Filter(m, lambda a: int(a[1]) < 2)
+    # j = Join(f, f)
 
     #Setup the driver and worker
     worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003", "127.0.0.1:9004"]
-    # worker_list = ["127.0.0.1:9001", "127.0.0.1:9002"]
     sc = SparkContext(worker_list, sys.argv[1])
     sc.launch_workers()
     sc.worker_setup()
 
-    sc.collect(j)
+    # sc.collect(j)
 
     logging.basicConfig()
 
