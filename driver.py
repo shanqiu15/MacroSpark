@@ -1,5 +1,7 @@
 from rdd import *
 from partition import *
+from start_workers import *
+import time
 import logging
 import zerorpc
 import StringIO
@@ -50,6 +52,17 @@ class SparkContext():
                 self.workers.append(worker)
             except zerorpc.TimeoutExpired:
                 continue
+
+    def launch_workers(self):
+        remotes = [Remote(addr) for addr in self.worker_list]
+        for worker in remotes:
+            worker.start()
+        #time.sleep(2)
+
+    def stop_workers(self):
+        remotes = [Remote(addr) for addr in self.worker_list]
+        for worker in remotes:
+            worker.stop()
 
     def worker_setup(self):
         #Get the live workers
@@ -242,7 +255,7 @@ class SparkContext():
 
 if __name__ == "__main__":
 
-    r = TextFile('testFile')
+    r = TextFile('/Local/Users/hao/Desktop/MacroSpark/testFile')
     m = FlatMap(r, lambda s: s.split())
     f = Map(m, lambda a: (a, 1))
     #mv = MapValue(f, lambda s:s)
@@ -254,10 +267,9 @@ if __name__ == "__main__":
     worker_list = ["127.0.0.1:9001", "127.0.0.1:9002", "127.0.0.1:9003", "127.0.0.1:9004"]
     # worker_list = ["127.0.0.1:9001", "127.0.0.1:9002"]
     sc = SparkContext(worker_list, sys.argv[1])
+    sc.launch_workers()
     sc.worker_setup()
 
-    #the process of caculate RDD "z"
-    # sc.job_schedule(j)
     sc.collect(j)
 
     logging.basicConfig()
