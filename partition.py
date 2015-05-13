@@ -24,11 +24,12 @@ class Partition(object):
 
 
 class FilePartition(Partition):
-    def __init__(self, rdd_id, worker_num, file_chunks):
+    def __init__(self, rdd_id, worker_num, file_chunks, path):
         super(FilePartition, self).__init__(rdd_id)
         self.partition_num = worker_num
         self.parent = None
         self.file_chunks = file_chunks
+        self.path = path
 
     def get(self, rdd_partition=None):
         if not self.data:
@@ -40,10 +41,12 @@ class FilePartition(Partition):
     def cache(self, rdd_partition=None):
         my_chunks = self.get_chunks()
         for chunk in my_chunks:
-            file_reader = open(chunk[0], "r")
+            if len(my_chunks) == 1:
+                file_reader = open(self.path, "r")
+            else:
+                file_reader = open(self.path + "/" + chunk[0], "r")
             file_reader.seek(chunk[1])
             self.data = self.data + file_reader.read(chunk[2] - chunk[1]).splitlines()
-            #self.data = self.data.get[0]
             file_reader.close()
         self.is_cached = True
         # print self.data

@@ -31,7 +31,7 @@ class Splitter(object):
         :return: An array of split position of the chunks, i.e., (file, start, end).
         """
         file_size = os.path.getsize(filename)
-        chunk_size = file_size / self.worker_num
+        chunk_size = (file_size + self.worker_num - 1) / self.worker_num
         file_handler = open(filename, "r")
         chunks = []
         pos = 0

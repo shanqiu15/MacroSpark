@@ -185,7 +185,7 @@ class SparkContext():
         splitter = Splitter(textfile.filePath, len(self.workers))
         file_split_result = splitter.split()
         self.operations[textfile.id] = FilePartition(textfile.id,
-                                                     len(self.workers), file_split_result)
+                                                     len(self.workers), file_split_result, textfile.filePath)
         self._set_collect_count(textfile)
 
 
