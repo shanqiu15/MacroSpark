@@ -1,3 +1,6 @@
+from itertools import groupby
+import time
+
 class RDD(object):
 
     def __init__(self):
@@ -34,7 +37,6 @@ class TextFile(RDD):
             f.close()
     
         for line in self.lines:
-            print line
             yield line
 
 class Map(RDD):
@@ -44,65 +46,41 @@ class Map(RDD):
         self.func = func
 
     def get(self):
-        print "This is the caculation in mapper"
         for element in self.parent.get():
             yield self.func(element)
 
-class Filter(RDD):
-    
+class FlatMap(RDD):
     def __init__(self, parent, func):
         self.parent = parent
         self.func = func
 
     def get(self):
-        print "This is the caculation in filter"
         for element in self.parent.get():
-            if self.func(element):
-                yield element
+            for i in self.func(element):
+                yield i
 
-class Join(RDD):
-    def __init__(self, parent_1, parent_2):
-        self.parent_1 = parent_1
-        self.parent_2 = parent_2
+class ReduceByKey(RDD):
+    def __init__(self, parent, func):
+        self.parent = parent
+        self.func = func
 
     def get(self):
-        for elem in self.yield_get():
-            print elem
+        parent_rdd = [element for element in self.parent.get()]
+        sorted_rdd = sorted(parent_rdd)
+        group_data = [(key, [i[1] for i in group]) for key, group in groupby(sorted_rdd, lambda x: x[0])]
+        self.data = [(key, reduce(self.func, group)) for key, group in group_data]
+        for i in self.data:
+            print i
 
-    def yield_get(self):
-        print "in the get of join again"
-        repartition_generator = self.repartition(self.parent_1)
-        repartition_generator.send(None)
-        ################################
-        ######repartition process#######
-        ################################
-        new_rdd = "This is the new rdd_1"
-        self.parent_1 = repartition_generator.send(new_rdd)
-        yield self.parent_1
-
-        repartition_generator = self.repartition(self.parent_2)
-        repartition_generator.send(None)
-        ################################
-        ######repartition process#######
-        ################################
-        new_rdd = "This is the new rdd_2"
-        self.parent_2 = repartition_generator.send(new_rdd)
-        yield self.parent_2
-
-    def repartition(self, rdd):
-        rdd = yield
-        print rdd
-        yield rdd
 
 if __name__ == "__main__":
-    # j = Join("old_1", "old_2");
-    # for i in j.get():
-    #     print i
-    # print j.get()
-    r = TextFile('myfile')
-    print r.collect()
-    # m = Map(r, lambda s: s.split())
-    # f = Filter(m, lambda a: int(a[1]) > 2)
-    # print f.collect(), f.count()
+    start_time = time.time()
+    r = TextFile('shell_code')
+    f = FlatMap(r, lambda s: s.split())
+    m = Map(f, lambda s: (s,1))
+    r = ReduceByKey(m, lambda x, y: x + y)
+    r.get()
+    print "running time is ", time.time() - start_time
+
 
     

@@ -44,6 +44,7 @@ class SparkContext():
         logging.debug('Start getting workers ')
         self.workers = []
         self.connections = []
+        self.worker_list = list(set(self.worker_list))
         for index, worker in enumerate(self.worker_list):
             c = zerorpc.Client(timeout=1)
             c.connect("tcp://" + worker)

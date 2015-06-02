@@ -166,13 +166,13 @@ class RePartition(RDD):
 
 
 if __name__ == "__main__":
-    r = TextFile('myfile')
+    r = TextFile('shell_code')
     m = Map(r, lambda s: s.split())
     f = Filter(m, lambda a: int(a[1]) > 2)
     mv = MapValue(f, lambda s:s)
     z = ReduceByKey(mv, lambda x, y: x + y)
 
-    r2 = TextFile('myfile')
+    r2 = TextFile('shell_code')
     m2 = Map(r, lambda s: s.split())
     j = Join(f, m2)
 

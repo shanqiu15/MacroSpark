@@ -348,7 +348,7 @@ class RePartition(Partition):
 
 
 if __name__ == "__main__":
-    r = FilePartition(1, 'myfile', 1)
+    r = FilePartition(1, 'shell_code', 1)
     f = FlatMapPartition(2, r, lambda s: s.split())
     m = MapPartition(3, f, lambda s: (s, 1))
     p = RePartition(4, m, 2)

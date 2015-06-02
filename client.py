@@ -43,7 +43,7 @@ def page_rank(filename = "/Local/Users/hao/Desktop/MacroSpark/input/page_rank.tx
         contribs = FlatMap(jo, lambda x: [(dest, float(x[1][1])/len(x[1][0])) for dest in x[1][0]])
         sum = ReduceByKey(contribs,lambda x, y: x + y)
         ranks = MapValue(sum, lambda x: 0.15 + 0.85 * x)
-        ranks.rdd_collect()
+        # ranks.rdd_collect()
     return ranks
 
 
